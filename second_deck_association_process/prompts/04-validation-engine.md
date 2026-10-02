@@ -23,7 +23,7 @@ Encode the league's contract and roster rules as **deterministic checks** that r
 | ID | Rule | Fail condition |
 |---|---|---|
 | V1 | Cap | `team_cap_committed(team, season)` > 78 + (# players occupying Fantrax IL slots) + net CAP_TRADE adjustments |
-| V2 | Contract bounds | drafted/called-up player with years <1 or >7; in-season waiver/FA pickup with years <1 or >3 |
+| V2 | Contract bounds | drafted/called-up player with years <1 or >7; in-season waiver/FA pickup with years <1 or >3. Skips `roster_level='minors'` events (minors can't hold contracts — the ledger rejects them). |
 | V3 | Re-sign tripwire | same team dropped a player and re-added him in-season with a new deal >3 years |
 | V4 | Duplicates | one `fantrax_id` on two teams' MLB rosters in the latest snapshot |
 | V5 | Coverage | Fantrax MLB-rostered player with no active contract event |

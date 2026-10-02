@@ -28,7 +28,7 @@ Local CSV exports live at:
 | Pos. | → `players.positions` |
 | Free Agent Year | → `fa_year` |
 | Move Type: Draft / Waiver | → note field; determines the contract-bounds rule that applied |
-| Move Type: **DFA** | → **not a move type**: set `roster_level='minors'` (DFA was the old stand-in for minor-league status) |
+| Move Type: **DFA** | → **no contract event**: these rows were planning placeholders ("future MLB signings"), not deals. The row appears in the DFA/minors audit only. If `Dropped=Yes` on a DFA row, ignore it (there was never a contract to drop) and note that in the audit line. |
 | Move Type: NULL / blank | → exceptions list for commissioner review |
 | Legal / Legal - Minors | → informational only; the new system *computes* legality (Prompt 4), it doesn't import the flag |
 | IL (Yes) | → cross-check against Fantrax Inj Res slots; record in note |
@@ -36,7 +36,7 @@ Local CSV exports live at:
 | Years (e.g. 1, 0.5) | → `years` for the SIGNED event being reconstructed |
 | Year added | → the `ts` year for the reconstructed SIGNED event (use Jan 1 of that year if no exact date) |
 
-Reconstruction logic per player row: one `SIGNED` event (years, fa_year, ts from Year added) plus, if Dropped=Yes, one `DROPPED` event (penalty years). `approved_by='migration'`, note=`migrated from <tab>`.
+Reconstruction logic per player row (non-minors rows only): one `SIGNED` event (years, fa_year, ts from Year added) plus, if Dropped=Yes, one `DROPPED` event (penalty years). `approved_by='migration'`, note=`migrated from <tab>`.
 
 ## Cap trades
 
@@ -53,7 +53,7 @@ Before anything is committed to the ledger, print a report:
 1. **Player match rate**: X/Y Sheet players matched to Fantrax IDs; every unmatched name listed with its tab.
 2. **Orphans**: players on a Fantrax MLB roster with no Sheet row (they need contracts!), and Sheet players on no Fantrax roster.
 3. **Cap sanity**: recomputed committed years per team from the migrated events — any team over 78 + IL relief is listed as a migration error (the ledger must start legal).
-4. **DFA/minors audit**: every row migrated as `roster_level='minors'` listed for spot-check.
+4. **DFA/minors audit**: every DFA row listed for spot-check (these rows produce no contract events — the audit is their only footprint).
 
 The commissioner reviews this report and resolves the exceptions list. Only then does the script write to the ledger (gate it behind a `--commit` flag; default is dry-run printing the report).
 
@@ -62,4 +62,4 @@ The commissioner reviews this report and resolves the exceptions list. Only then
 - Dry run (default) prints the full reconciliation report and writes nothing.
 - `--commit` writes exactly the reviewed events; re-running `--commit` is idempotent (won't double-import — key off a `migration_batch` marker in `note`).
 - Missing-tab detection: fails loudly naming the absent tabs.
-- pytest: DFA→minors mapping test, drop-penalty reconstruction test, idempotency test.
+- pytest: DFA-rows-produce-no-events test, drop-penalty reconstruction test, idempotency test.

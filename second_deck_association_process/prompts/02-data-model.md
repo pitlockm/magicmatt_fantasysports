@@ -102,6 +102,7 @@ CREATE TABLE league_history (
 4. **Derived state, not stored state.** "Current contracts" = latest non-expired event per (team, player). `years_remaining = fa_year - current_season`. Build this as a **view** (`current_contracts`), not a table.
 5. **One-day default.** If the validation engine (Prompt 4) finds a new Fantrax add with no matching announcement, it appends a `DEFAULTED_1YR` event (source='system'). The schema must support that flow.
 6. **IL is slot-based.** `roster_level = 'IL'` means the player occupies a Fantrax IL roster slot (manager action) — never inferred from real-life injury status. Minor-league players can never be `'IL'` (constitution §2.4: only players officially on the MLB Injured List are eligible). A real-life-IL player in an active/bench slot is `'MLB'`.
+7. **No contracts for minor leaguers.** The old tracker's DFA rows with contract years were a planning tool, not deals — the migration creates no events for them. The ledger rejects `SIGNED`/`EXTENDED` with `roster_level='minors'`; a minor leaguer's first real deal is a `CALLED_UP` event (1–7 years, `roster_level='MLB'`). The `current_contracts` view excludes `roster_level='minors'` rows so placeholders never touch the cap. Demoted players (signed at MLB level, now in minors) still count per constitution 4.2 — the filter keys on the event's level at signing, not the player's current level.
 
 ## What to build
 

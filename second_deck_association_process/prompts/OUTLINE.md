@@ -25,14 +25,14 @@
 
 - Live DB is a local DuckDB file (`data/sda.duckdb`), gitignored. After each run, commit a **text snapshot** (SQL dump or Parquet→CSV export) so git history is the audit trail.
 - Tables: `teams`, `players` (`fantrax_id` PK, name aliases, `real_draft_year`, positions), `contract_events` (**append-only**: timestamp, team, player, event type — SIGNED / EXTENDED / DROPPED / EXPIRED / CALLED_UP / CAP_TRADE — years, FA year, source [discord / manual / migration / fantrax], note, approved_by), `roster_snapshots`, `pending_contracts` (Discord approval queue), `season_config`, `league_history` (season records, champions, prize winnings).
-- **Roster level vs move type:** `roster_level` (MLB / minors) is a classification separate from `move_type` (Draft / Waiver / …). The tracker's Move Type value `DFA` was only ever a stand-in for minor-league status — migrate those rows to `roster_level=minors`, never as a move type.
+- **Roster level vs move type:** `roster_level` (MLB / minors) is a classification separate from `move_type` (Draft / Waiver / …). The tracker's Move Type value `DFA` was only ever a stand-in for minor-league status — and its "contract years" were planning placeholders, not deals: those rows get **no contract event at all** (DFA/minors audit only). The ledger rejects `SIGNED`/`EXTENDED` with `roster_level='minors'`; a minor leaguer's first real deal is a `CALLED_UP` event.
 - Current state is always derived by replaying `contract_events`; `years_remaining = fa_year − current_season`.
 - Acceptance: rebuild the DB from snapshots alone; ledger-replay unit test.
 
 ## Prompt 3 — Sheets migration (one-time backfill)
 
 - Source: "SDA - Major League Contract Tracker" (CSV export or Sheets API). Commissioner's local copy lives at `/Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/` — **one CSV per team tab is needed** (10 team tabs only). The Salary Cap Tracking, Estimated Free Agent Class, and League History tabs are deliberately NOT migrated: cap tracking restarts at 78/team/season (future trades via Discord), FA projection is derived from `fa_year`, and history accumulates from the Fantrax API going forward.
-- Map columns — Player, Pos, FA Year, Move Type (Draft / Waiver / DFA / NULL), Legal flag, IL, Dropped, Years, Year added — into `contract_events` with `source=migration`. Move Type `DFA` → `roster_level=minors` (not a move type).
+- Map columns — Player, Pos, FA Year, Move Type (Draft / Waiver / DFA / NULL), Legal flag, IL, Dropped, Years, Year added — into `contract_events` with `source=migration`. Move Type `DFA` → no event (planning placeholder; audit only).
 - Produce a **reconciliation report**: every Sheet player matched to a Fantrax roster entry; orphans listed; cap totals recomputed vs the Sheet's Salary Cap Tracking tab; every discrepancy flagged for commissioner review before cutover.
 - Import the Cap Trade Tracker rows as first-class CAP_TRADE events (supported per commissioner; recommend committee ratification since the constitution is silent).
 - Seed `league_history` from the tracker's League History tab (champions, records, prize winnings); gaps filled manually.

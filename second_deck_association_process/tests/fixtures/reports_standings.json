@@ -1,0 +1,27 @@
+[
+  {
+    "teamId": "team-a",
+    "teamName": "Alpha Owls",
+    "rank": 1,
+    "record": "10-4-0",
+    "categories": {
+      "R": {"total": 810, "points": 8},
+      "HR": {"total": 220, "points": 9},
+      "RBI": {"total": 790, "points": 7},
+      "SB": {"total": 95, "points": 10},
+      "OBP": {"total": 0.341, "points": 8},
+      "QS": {"total": 82, "points": 9},
+      "K": {"total": 1320, "points": 8},
+      "ERA": {"total": 3.42, "points": 7},
+      "WHIP": {"total": 1.18, "points": 8},
+      "SVH": {"total": 74, "points": 9}
+    }
+  },
+  {
+    "teamId": "team-b",
+    "teamName": "Copperheads",
+    "rank": 2,
+    "record": "9-5-0",
+    "categories": {"R": {"total": 780, "points": 6}}
+  }
+]

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro">
+  <p>Contract-year commitments by team. Active multi-year deals are expandable; dead cap is separated in each season cell.</p>
+  <span class="section-tag">7 SEASONS / LEDGER-DERIVED</span>
+</section>
+<div class="table-wrap grid-wrap">
+  <table class="data-table cap-grid">
+    <thead><tr><th>Team</th>{% for year in report.seasons %}<th>{{ year }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for team in report.teams %}
+      <tr>
+        <th scope="row" class="team-cell">{{ team.team_name }}<small>{{ team.manager|value }}</small></th>
+        {% for cell in team.cells %}
+        <td>
+          <strong>{{ cell|cell }}</strong>
+          <small>{{ cell.remaining|number }} space{% if cell.cap_trade %} / trade {{ "+" if cell.cap_trade > 0 else "" }}{{ cell.cap_trade|number }}{% endif %}{% if cell.il_relief %} / IL +{{ cell.il_relief }}{% endif %}</small>
+          {% if cell.contracts %}<details><summary>{{ cell.contracts|length }} multi-year deal{% if cell.contracts|length != 1 %}s{% endif %}</summary>
+            <ul>{% for contract in cell.contracts %}<li>{{ contract.player_name }} <span>{{ contract.years_remaining }} yr{% if contract.years_remaining != 1 %}s{% endif %} left</span></li>{% endfor %}</ul>
+          </details>{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% else %}<tr><td colspan="8" class="empty">No teams have been loaded.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<section class="minor-section">
+  <div class="section-heading"><div><p class="eyebrow">PLANNING ROSTER</p><h2>Minor leaguers</h2></div><span>{{ report.minors|length }} players</span></div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Player</th><th>Team</th><th>Pos.</th><th>Age</th><th>Career MLB AB / IP</th></tr></thead>
+    <tbody>{% for player in report.minors %}<tr>
+      <td>{{ player.player_name }}</td><td>{{ player.team_name }}</td><td>{{ player.positions|value }}</td><td>{{ player.age|value }}</td>
+      <td>{{ player.career_ab|value }} / {{ player.career_ip|value }}</td>
+    </tr>{% else %}<tr><td colspan="5" class="empty">No minor-league roster snapshot available.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

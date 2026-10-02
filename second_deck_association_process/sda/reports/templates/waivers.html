@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>Recently dropped players still on waivers, ranked by roster percentage. Unrostered free agents are excluded.</p><span class="section-tag">TOP 10 / ROSTERED WAIVERS</span></section>
+<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>Player</th><th data-sort>Position</th><th data-sort>Dropped by</th><th data-sort>Days on waivers</th><th data-sort>Roster %</th></tr></thead><tbody>
+{% for player in report.players %}<tr><td>{{ player.player_name }}</td><td>{{ player.position }}</td><td>{{ player.dropped_by }}</td><td>{{ player.days_on_waivers|value }}</td><td>{{ player.roster_pct|value }}{% if player.roster_pct is not none %}%{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="empty">No waiver-pool snapshot or CSV export is available.</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="source-note">Source: Fantrax player pool in <code>getLeagueInfo</code>, falling back to the Fantrax players-page CSV filtered to waiver status.</p>
+{% endblock %}

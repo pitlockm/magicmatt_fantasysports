@@ -1,0 +1,6 @@
+{
+  "players": [
+    {"playerId": "p-active", "rank": 38},
+    {"playerId": "p-beta", "averageDraftPosition": 72.5}
+  ]
+}

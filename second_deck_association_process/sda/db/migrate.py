@@ -241,6 +241,14 @@ def build_migration_plan(
             if not move_type or move_type.casefold() == "null":
                 plan.exceptions.append(MigrationException(tab, row_number, player_name, "Move Type is blank/NULL"))
                 continue
+            roster_level = "minors" if _normalize_header(move_type) in MINOR_MOVE_TYPES else "MLB"
+            if roster_level == "minors":
+                audit = f"{tab} row {row_number}: {player_name} [{fantrax_id}], Move Type={move_type}; planning placeholder, no contract events"
+                if _is_yes(_value(record, "dropped", "dropped yes")):
+                    audit += "; Dropped=Yes ignored because no contract existed"
+                plan.minors_audit.append(audit)
+                continue
+
             fa_year = _parse_year(_value(record, "free agent year"))
             years = _parse_number(_value(record, "player contract years", "years", "contract years"))
             added_year = _parse_year(_value(record, "year added"))
@@ -254,7 +262,6 @@ def build_migration_plan(
                 plan.exceptions.append(MigrationException(tab, row_number, player_name, "Invalid or missing Year added"))
                 continue
 
-            roster_level = "minors" if _normalize_header(move_type) in MINOR_MOVE_TYPES else "MLB"
             is_il = _is_yes(_value(record, "il", "il yes"))
             dropped = _is_yes(_value(record, "dropped", "dropped yes"))
             note_parts = [f"migrated from {tab}", f"move_type={move_type}", f"migration_batch={batch_id}"]
@@ -275,8 +282,6 @@ def build_migration_plan(
                 sheet_il=is_il,
             )
             plan.events.append(sign_event)
-            if roster_level == "minors":
-                plan.minors_audit.append(f"{tab} row {row_number}: {player_name} [{fantrax_id}], Move Type={move_type}")
             if dropped:
                 penalty_years = _parse_number(
                     _value(record, "drop penalty years", "penalty years", "drop years")
@@ -317,6 +322,11 @@ def commit_migration(
     database_path: Path = DEFAULT_DATABASE_PATH,
 ) -> int:
     """Write one reviewed migration batch atomically and export a text snapshot."""
+    if any(
+        event.event_type in {"SIGNED", "EXTENDED"} and event.roster_level == "minors"
+        for event in plan.events
+    ):
+        raise ValueError("Migration plan cannot sign or extend a minor-league player")
     if not plan.can_commit:
         raise ValueError("Migration is blocked until missing tabs and all exceptions are resolved")
     database_path = Path(database_path)

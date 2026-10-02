@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>Active deals grouped by the first season each player is eligible for free agency. Control runs through the prior year.</p><span class="section-tag">FA YEAR = SIGNING YEAR + YEARS</span></section>
+{% for year in report.years %}
+<section class="report-section">
+  <div class="section-heading"><div><p class="eyebrow">FREE AGENT CLASS</p><h2>{{ year.year }}</h2></div><span>{{ year.players|length }} players</span></div>
+  <div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>Player</th><th data-sort>Team</th><th data-sort>Signed through</th><th data-sort>Free agent</th><th>Deal</th></tr></thead><tbody>
+  {% for player in year.players %}<tr class="{% if player.star or player.multi_year %}highlight-row{% endif %}">
+    <td>{{ player.player_name }}{% if player.star %}<span class="star-mark">TOP RANK</span>{% endif %}</td><td>{{ player.team_name }}</td><td>{{ player.signed_through }}</td><td><strong>{{ player.fa_year }}</strong></td><td>{{ "Multi-year" if player.multi_year else "Expiring" }}</td>
+  </tr>{% else %}<tr><td colspan="5" class="empty">No players in this class.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% else %}<p class="empty-state">No upcoming free-agent years are recorded.</p>{% endfor %}
+{% endblock %}

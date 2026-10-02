@@ -129,8 +129,8 @@ def test_missing_tabs_are_listed_exactly(tmp_path: Path) -> None:
     assert missing == list(REQUIRED_TABS)
 
 
-def test_dfa_maps_to_minors_and_drop_reconstructs_penalty(tmp_path: Path) -> None:
-    """Use the source Move Type for roster level and preserve penalty years."""
+def test_dfa_row_is_audited_without_contract_or_drop_events(tmp_path: Path) -> None:
+    """DFA planning placeholders create no ledger events, even when marked dropped."""
     source_dir, database_path, data_dir = _build_fixture(
         tmp_path,
         move_type="DFA",
@@ -140,28 +140,46 @@ def test_dfa_maps_to_minors_and_drop_reconstructs_penalty(tmp_path: Path) -> Non
     )
     plan = build_migration_plan(source_dir, database_path, data_dir=data_dir, season=2027)
 
-    signed, dropped = [event for event in plan.events if event.event_type != "CAP_TRADE"]
-    assert (signed.event_type, signed.roster_level, signed.years, signed.fa_year) == (
-        "SIGNED",
-        "minors",
-        2.0,
-        2028,
-    )
-    assert (dropped.event_type, dropped.years, dropped.ts.year) == ("DROPPED", 0.5, 2027)
+    assert plan.events == []
     assert plan.minors_audit
+    assert "Dropped=Yes ignored" in plan.minors_audit[0]
     assert plan.matched_player_rows == 1
     assert plan.fantrax_orphans == ["Team 1: orphan-player"]
     assert plan.sheet_orphans == []
     assert "PLAYER MATCH RATE" in plan.render()
     assert "DFA / MINORS AUDIT" in plan.render()
     assert "CAP SANITY (78 YEARS + FANTRAX IL RELIEF)" in plan.render()
+    assert plan.cap_report[0].startswith("Team 0: 0 committed / 78 allowed")
     assert not plan.cap_errors
-    assert "Sheet IL=No; Fantrax IL slot=No" in plan.events[0].note
+
+
+def test_commit_rejects_planned_minors_signing(tmp_path: Path) -> None:
+    """Defense in depth rejects minors SIGNED/EXTENDED events in hand-built plans."""
+    _, database_path, _ = _build_fixture(tmp_path, move_type="Draft")
+    plan = MigrationPlan(batch_id="bad-minors", season=2027)
+    plan.events = [
+        MigrationEvent(
+            ts=datetime(2027, 1, 1),
+            team_id="team-0",
+            fantrax_id="player-1",
+            event_type="SIGNED",
+            years=2,
+            fa_year=2029,
+            roster_level="minors",
+            note="invalid fixture",
+            migration_key="bad-minors:1",
+        )
+    ]
+
+    import pytest
+
+    with pytest.raises(ValueError, match="cannot sign or extend a minor-league player"):
+        commit_migration(plan, database_path)
 
 
 def test_commit_is_idempotent_by_batch_marker(tmp_path: Path) -> None:
     """Repeated commits of the same source export append each event only once."""
-    source_dir, database_path, data_dir = _build_fixture(tmp_path)
+    source_dir, database_path, data_dir = _build_fixture(tmp_path, move_type="Draft")
     plan = build_migration_plan(source_dir, database_path, data_dir=data_dir, season=2027)
 
     assert plan.can_commit

@@ -1,0 +1,18 @@
+[
+  {
+    "teamId": "team-a",
+    "teamName": "Alpha Owls",
+    "categories": {
+      "R": {"points": 8},
+      "HR": {"points": 9},
+      "RBI": {"points": 7},
+      "SB": {"points": 10},
+      "OBP": {"points": 8},
+      "QS": {"points": 9},
+      "K": {"points": 8},
+      "ERA": {"points": 7},
+      "WHIP": {"points": 8},
+      "SVH": {"points": 9}
+    }
+  }
+]

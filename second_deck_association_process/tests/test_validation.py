@@ -292,6 +292,26 @@ def test_engine_does_not_apply_one_day_default_to_minors_add(tmp_path: Path) -> 
     assert not any(result["rule_id"] == "V12" and not result["passed"] for result in report["per_team"]["t1"])
 
 
+def test_engine_skips_legacy_minors_contract_in_v2_and_v1_cap(tmp_path: Path) -> None:
+    """A legacy minors placeholder neither triggers bounds nor changes team cap."""
+    database = tmp_path / "legacy-minors.duckdb"
+    _engine_database(database)
+    with open_database(database) as connection:
+        connection.execute(
+            """INSERT INTO contract_events (
+                   ts, team_id, fantrax_id, event_type, years, fa_year, source, roster_level
+               ) VALUES (TIMESTAMP '2027-03-01', 't1', 'p1', 'SIGNED', 12, 2040, 'migration', 'minors')"""
+        )
+
+    report = run_all(2027, database, now=datetime(2027, 3, 5))
+    team_results = report["per_team"]["t1"]
+    assert next(result for result in team_results if result["rule_id"] == "V1")["passed"] is True
+    assert not any(
+        result["rule_id"] == "V2" and result.get("fantrax_id") == "p1"
+        for result in team_results
+    )
+
+
 def test_engine_failure_fixture_reports_each_rule_once(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

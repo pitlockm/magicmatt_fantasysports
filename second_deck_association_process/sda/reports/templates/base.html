@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{ title }} | Second Deck Association</title>
+  <link rel="stylesheet" href="static/style.css">
+  <script defer src="static/sort.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Second Deck Association home">
+      <span class="brand-mark">SD</span>
+      <span><strong>SECOND DECK</strong><small>ASSOCIATION / BASEBALL</small></span>
+    </a>
+    <div class="season-stamp">SEASON <b>{{ season }}</b></div>
+  </header>
+  <nav class="primary-nav" aria-label="League reports">
+    <a class="{% if active_page == 'grid' %}active{% endif %}" href="index.html">Contracts</a>
+    <a class="{% if active_page == 'free_agents' %}active{% endif %}" href="free_agents.html">Free agents</a>
+    <a class="{% if active_page == 'waivers' %}active{% endif %}" href="waivers.html">Waivers</a>
+    <a class="{% if active_page == 'standings' %}active{% endif %}" href="standings.html">Standings</a>
+    <a class="{% if active_page == 'history' %}active{% endif %}" href="history.html">History</a>
+    <a class="{% if active_page == 'cap_tracker' %}active{% endif %}" href="cap_tracker.html">Cap tracker</a>
+  </nav>
+  <main>
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">SDA / {{ season }} SEASON</p>
+        <h1>{{ title }}</h1>
+      </div>
+      <p class="generated">Updated {{ generated_at }}</p>
+    </div>
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <span>SECOND DECK ASSOCIATION</span>
+    <nav aria-label="Audit views">
+      <a href="ledger.html">Contract ledger</a>
+      <a href="validation.html">Validation</a>
+      <a href="transactions.html">Transactions</a>
+    </nav>
+  </footer>
+</body>
+</html>

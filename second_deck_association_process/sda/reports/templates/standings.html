@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>Current league record, category totals, and matchup category points.</p><span class="section-tag">CATEGORIES / TOTALS + POINTS</span></section>
+<div class="table-wrap wide-table"><table class="data-table sortable standings-table"><thead>
+<tr><th rowspan="2" data-sort data-column="0">Team</th><th rowspan="2" data-sort data-column="1">Rank</th><th rowspan="2" data-sort data-column="2">W-L-T</th>{% for category in report.categories %}<th colspan="2">{{ category }}</th>{% endfor %}</tr>
+<tr>{% for category in report.categories %}<th data-sort data-column="{{ 3 + loop.index0 * 2 }}">Total</th><th data-sort data-column="{{ 4 + loop.index0 * 2 }}">Pts</th>{% endfor %}</tr>
+</thead><tbody>{% for team in report.teams %}<tr><th scope="row">{{ team.team_name }}</th><td>{{ team.rank|value }}</td><td>{{ team.record }}</td>{% for category in report.categories %}<td>{{ team.totals[category]|value }}</td><td>{{ team.points[category]|value }}</td>{% endfor %}</tr>
+{% else %}<tr><td colspan="23" class="empty">No standings snapshot is available.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

@@ -47,8 +47,8 @@ def test_drop_leaves_scheduled_dead_cap_but_no_current_contract(tmp_path: Path) 
     ]
 
 
-def test_cap_trade_adjustments_are_team_level_and_season_scoped(tmp_path: Path) -> None:
-    """Signed cap-trade events adjust only the named team's event season."""
+def test_cap_trade_adjustments_change_room_and_are_season_scoped(tmp_path: Path) -> None:
+    """A negative sent-cap event reduces effective room for that season."""
     database_path = tmp_path / "sda.duckdb"
     initialize_database(database_path)
     with open_database(database_path) as connection:
@@ -59,8 +59,61 @@ def test_cap_trade_adjustments_are_team_level_and_season_scoped(tmp_path: Path) 
         ts=datetime(2027, 4, 1), database_path=database_path,
     )
 
-    assert team_cap_committed("t1", 2027, database_path) == -2.5
+    assert team_cap_committed("t1", 2027, database_path) == 2.5
     assert team_cap_committed("t1", 2028, database_path) == 0.0
+
+
+def test_minors_contract_events_are_rejected_and_do_not_count_toward_cap(tmp_path: Path) -> None:
+    """Reject new minors deals and ignore legacy placeholders in cap queries."""
+    database_path = tmp_path / "sda.duckdb"
+    initialize_database(database_path)
+    with open_database(database_path) as connection:
+        connection.execute("INSERT INTO teams (team_id, team_name) VALUES ('t1', 'Team One')")
+        connection.executemany(
+            "INSERT INTO players (fantrax_id, name) VALUES (?, ?)",
+            [("p1", "Minor Placeholder"), ("p2", "Demoted Deal")],
+        )
+
+    with pytest.raises(ValueError, match="Minor leaguers cannot hold contracts; use CALLED_UP"):
+        append_event(
+            "t1", "p1", "SIGNED", 5, 2032, "manual",
+            roster_level="minors", database_path=database_path,
+        )
+    with pytest.raises(ValueError, match="Minor leaguers cannot hold contracts; use CALLED_UP"):
+        append_event(
+            "t1", "p1", "EXTENDED", 2, 2032, "manual",
+            roster_level="minors", database_path=database_path,
+        )
+
+    append_event(
+        "t1", "p2", "SIGNED", 5, 2032, "manual",
+        ts=datetime(2027, 1, 1), roster_level="MLB", database_path=database_path,
+    )
+    with open_database(database_path) as connection:
+        connection.execute(
+            """INSERT INTO contract_events (
+                   ts, team_id, fantrax_id, event_type, years, fa_year, source, roster_level
+               ) VALUES (TIMESTAMP '2027-02-01', 't1', 'p1', 'SIGNED', 7, 2034, 'migration', 'minors')"""
+        )
+        connection.execute(
+            """INSERT INTO contract_events (
+                   ts, team_id, fantrax_id, event_type, years, fa_year, source, roster_level
+               ) VALUES (TIMESTAMP '2027-03-01', 't1', 'p1', 'DROPPED', 3, 2034, 'migration', 'minors')"""
+        )
+
+    contracts = current_contracts(2027, database_path)
+    assert [(contract["fantrax_id"], contract["roster_level"]) for contract in contracts] == [
+        ("p2", "MLB")
+    ]
+    assert team_cap_committed("t1", 2027, database_path) == 5.0
+    from sda.db.ledger import record_roster_snapshot
+
+    record_roster_snapshot(
+        datetime(2027, 4, 1).date(),
+        {"t1": {"minors_roster": [{"id": "p2", "roster_level": "minors"}]}},
+        database_path,
+    )
+    assert team_cap_committed("t1", 2027, database_path) == 5.0
 
 
 def test_contract_events_have_no_update_or_delete_path() -> None:

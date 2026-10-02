@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>Annual cap view separates player commitments from cap adjustments. Active commitments include contract years and scheduled dead cap.</p><span class="section-tag">BASE 78 / IL / CAP TRADES</span></section>
+<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>Season</th><th data-sort>Team</th><th data-sort>Base cap</th><th data-sort>IL relief</th><th data-sort>Cap trade</th><th data-sort>Effective cap</th><th data-sort>Committed</th><th data-sort>Remaining</th><th>Dead cap</th></tr></thead><tbody>
+{% for row in report.years %}<tr><td>{{ row.year }}</td><th scope="row">{{ row.team_name }}</th><td>{{ row.base_cap }}</td><td>+{{ row.il_relief }}</td><td>{{ "+" if row.cap_trade > 0 else "" }}{{ row.cap_trade|number }}</td><td><strong>{{ row.effective_cap|number }}</strong></td><td>{{ row.committed|number }}</td><td class="remaining">{{ row.remaining|number }}</td><td>{{ row.dead_cap|number }}</td></tr>
+{% else %}<tr><td colspan="9" class="empty">No cap data is available.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

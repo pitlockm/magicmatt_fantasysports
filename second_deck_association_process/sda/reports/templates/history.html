@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>League history is accumulated from Fantrax standings and commissioner season finalization.</p><span class="section-tag">DUCKDB HISTORY TABLES</span></section>
+<section class="report-section"><div class="section-heading"><div><p class="eyebrow">ALL-TIME</p><h2>Team leaderboard</h2></div></div>
+<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>Team</th><th data-sort>Seasons</th><th data-sort>W-L-T</th><th data-sort>Titles</th><th data-sort>Runner-ups</th><th data-sort>Regular 1sts</th><th data-sort>Playoffs</th></tr></thead><tbody>
+{% for team in report.all_time %}<tr><th scope="row">{{ team.team_name }}</th><td>{{ team.seasons_played }}</td><td>{{ team.all_time_w }}-{{ team.all_time_l }}-{{ team.all_time_t }}</td><td>{{ team.championships }}</td><td>{{ team.runner_ups }}</td><td>{{ team.regular_season_firsts }}</td><td>{{ team.playoff_appearances }}</td></tr>
+{% else %}<tr><td colspan="7" class="empty">No finalized team history yet.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="report-section"><div class="section-heading"><div><p class="eyebrow">BY SEASON</p><h2>Yearly records</h2></div></div>
+<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>Season</th><th data-sort>Champion</th><th data-sort>Runner-up</th><th data-sort>Regular-season best</th><th data-sort>Champion prize</th><th data-sort>Runner-up prize</th></tr></thead><tbody>
+{% for year in report.yearly %}<tr><th scope="row">{{ year.season }}</th><td>{{ year.champion|value }}</td><td>{{ year.runner_up|value }}</td><td>{{ year.regular_season_first|value }}{% if year.best_record != "—" %} / {{ year.best_record }}{% endif %}</td><td>{{ year.prize_champion|value }}</td><td>{{ year.prize_runner_up|value }}</td></tr>
+{% else %}<tr><td colspan="6" class="empty">No completed seasons have been recorded.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

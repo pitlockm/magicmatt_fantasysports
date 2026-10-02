@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>Deterministic contract and roster checks for the latest saved Fantrax roster snapshot.</p><span class="section-tag">{{ report.summary.checks|value }} CHECKS</span></section>
+<div class="summary-strip"><span><b>{{ report.summary.passed|value }}</b> passed</span><span><b class="failure-count">{{ report.summary.failed|value }}</b> failed</span><span><b>{{ report.summary.review_required|value }}</b> for review</span></div>
+{% for team_id, results in report.per_team.items() %}<section class="report-section"><div class="section-heading"><div><p class="eyebrow">TEAM VALIDATION</p><h2>{{ team_id }}</h2></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Rule</th><th>Status</th><th>Player ID</th><th>Detail</th></tr></thead><tbody>
+{% for result in results %}<tr><td>{{ result.rule_id }}</td><td><span class="status-badge {% if result.passed %}pass{% else %}fail{% endif %}">{{ "PASS" if result.passed else "FAIL" }}{% if result.review_required %} / REVIEW{% endif %}</span></td><td>{{ result.fantrax_id|value }}</td><td>{{ result.detail }}</td></tr>{% endfor %}
+</tbody></table></div></section>{% else %}<p class="empty-state">No team data is available for validation.</p>{% endfor %}
+{% if report.summary.actions_taken %}<section class="report-section"><h2>Actions taken</h2><ul>{% for action in report.summary.actions_taken %}<li>{{ action.event_type }} / {{ action.fantrax_id }}: {{ action.detail }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

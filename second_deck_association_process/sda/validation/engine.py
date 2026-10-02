@@ -69,6 +69,8 @@ def run_all(
             )
         )
     for event in state["events"]:
+        if str(event.get("roster_level", "MLB")).casefold() == "minors":
+            continue
         if str(event.get("event_type", "")).upper() in {"SIGNED", "CALLED_UP", "DEFAULTED_1YR"}:
             acquisition = _acquisition_type(event, state["draft_start"], state["draft_end"])
             add(rules.v2_contract_bounds(event, acquisition))
@@ -239,6 +241,7 @@ def _load_state(database_path: Path, season: int) -> dict[str, Any]:
                    END), 0)
                    FROM contract_events
                    WHERE team_id = ? AND event_type = 'DROPPED'
+                                         AND roster_level <> 'minors'
                      AND ? >= YEAR(ts) AND ? < fa_year""",
                 [season, season, team_id, season, season],
             ).fetchone()[0]
@@ -247,8 +250,8 @@ def _load_state(database_path: Path, season: int) -> dict[str, Any]:
                    WHERE team_id = ? AND event_type = 'CAP_TRADE' AND YEAR(ts) = ?""",
                 [team_id, season],
             ).fetchone()[0]
-            cap_adjustments[team_id] = float(dead_cap + cap_trades)
-            cap_committed[team_id] = float(active_years + dead_cap + cap_trades)
+            cap_adjustments[team_id] = float(dead_cap - cap_trades)
+            cap_committed[team_id] = float(active_years + dead_cap - cap_trades)
 
         active_contract_ids = {
             (str(team_id), str(fantrax_id))

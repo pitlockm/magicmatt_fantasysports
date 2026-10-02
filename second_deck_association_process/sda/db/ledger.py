@@ -113,6 +113,7 @@ def team_cap_committed(
                FROM contract_events
                WHERE team_id = ?
                  AND event_type = 'DROPPED'
+                 AND roster_level <> 'minors'
                  AND ? >= YEAR(ts)
                  AND ? < fa_year""",
             [season, season, team_id, season, season],
@@ -125,7 +126,7 @@ def team_cap_committed(
                  AND YEAR(ts) = ?""",
             [team_id, season],
         ).fetchone()[0]
-    return float(active_years + dead_cap + cap_trade_adjustment)
+    return float(active_years + dead_cap - cap_trade_adjustment)
 
 
 def record_roster_snapshot(
@@ -214,6 +215,8 @@ def _validate_event(
             raise ValueError(f"{event_type} events require a positive number of years")
     if roster_level not in ROSTER_LEVELS:
         raise ValueError(f"Unsupported contract roster level: {roster_level}")
+    if event_type in {"SIGNED", "EXTENDED"} and roster_level == "minors":
+        raise ValueError("Minor leaguers cannot hold contracts; use CALLED_UP when promoted")
 
 
 def _export_after_write(database_path: Path) -> None:

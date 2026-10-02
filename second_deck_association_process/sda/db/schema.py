@@ -177,7 +177,9 @@ SELECT
     event_id, ts, recorded_at, team_id, fantrax_id, event_type, years,
     fa_year, source, note, approved_by, roster_level
 FROM ranked_events
-WHERE event_rank = 1 AND event_type NOT IN ('DROPPED', 'EXPIRED');
+WHERE event_rank = 1
+    AND event_type NOT IN ('DROPPED', 'EXPIRED')
+    AND roster_level <> 'minors';
 """
 
 

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro"><p>Saved Fantrax transaction history, with CSV import available when a transaction snapshot is unavailable.</p><span class="section-tag">TRANSACTION LOG</span></section>
+<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>Date</th><th data-sort>Team</th><th data-sort>Player</th><th data-sort>Transaction</th><th>Details</th></tr></thead><tbody>
+{% for item in report.transactions %}<tr><td>{{ item.date|date }}</td><td>{{ item.team|value }}</td><td>{{ item.player|value }}</td><td>{{ item.transaction|value }}</td><td>{{ item.details|value }}</td></tr>
+{% else %}<tr><td colspan="5" class="empty">No transaction snapshot or CSV export is available.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

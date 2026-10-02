@@ -16,7 +16,9 @@ Local CSV exports live at:
 /Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/
 ```
 
-**One CSV per Sheet tab is required**: every team tab (Boe, Maloun, Hoffman, Pecora, C. Pelton, W. Pelton, Pitlock, Riggen, A. Rolain, M. Rolain), plus **Salary Cap Tracking** and **Estimated Free Agent Class**. Export via Google Sheets: File → Download → Comma-separated values, switching tabs along the bottom. If any tab's CSV is missing, the script must fail loudly listing exactly which are absent — never silently migrate a partial league.
+**One CSV per team tab is required**: Boe, Maloun, Hoffman, Pecora, C. Pelton, W. Pelton, Pitlock, Riggen, A. Rolain, M. Rolain. Export via Google Sheets: File → Download → Comma-separated values, switching tabs along the bottom. If any tab's CSV is missing, the script must fail loudly listing exactly which are absent — never silently migrate a partial league.
+
+**Deliberately out of scope (built from scratch, not migrated):** the **Salary Cap Tracking**, **Estimated Free Agent Class**, and **League History** tabs. Cap tracking restarts at 78 years per team per season with future cap trades announced in Discord (Prompt 6); the free-agent projection is derived from `fa_year` (Prompt 5, Report 2); league history accumulates from the Fantrax API going forward (Prompt 7). Do not read those tabs at all.
 
 ## Column mapping (team tabs)
 
@@ -38,11 +40,11 @@ Reconstruction logic per player row: one `SIGNED` event (years, fa_year, ts from
 
 ## Cap trades
 
-Import the **Salary Cap Trade Tracker** section of the Salary Cap Tracking tab as `CAP_TRADE` events (team giving up years → negative adjustment; team receiving → positive). These are first-class per the commissioner's ruling.
+Do NOT import historical cap trades — cap tracking starts fresh at 78 contract-years per team per season, and future cap trades are announced in Discord and recorded by the bot (Prompt 6). The ledger begins with zero `CAP_TRADE` events.
 
 ## League history
 
-Seed `league_history` from the tracker's **League History** tab (champions, records, prize winnings). Gaps stay NULL with a note — they'll be filled manually.
+Do NOT seed from the tracker's League History tab. History accumulates from the Fantrax API going forward (Prompt 7).
 
 ## The reconciliation report (the real deliverable)
 
@@ -50,9 +52,8 @@ Before anything is committed to the ledger, print a report:
 
 1. **Player match rate**: X/Y Sheet players matched to Fantrax IDs; every unmatched name listed with its tab.
 2. **Orphans**: players on a Fantrax MLB roster with no Sheet row (they need contracts!), and Sheet players on no Fantrax roster.
-3. **Cap check**: recomputed committed years per team from the migration vs the Sheet's Salary Cap Tracking tab — every discrepancy listed.
+3. **Cap sanity**: recomputed committed years per team from the migrated events — any team over 78 + IL relief is listed as a migration error (the ledger must start legal).
 4. **DFA/minors audit**: every row migrated as `roster_level='minors'` listed for spot-check.
-5. **Cap trades**: every imported CAP_TRADE event listed.
 
 The commissioner reviews this report and resolves the exceptions list. Only then does the script write to the ledger (gate it behind a `--commit` flag; default is dry-run printing the report).
 

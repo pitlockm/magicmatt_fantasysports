@@ -29,6 +29,17 @@ A long-running `discord.py` bot that watches the league's announcements channel 
 5. **Approve.** The commissioner approves with a ✅ reaction on the card or `/contract approve <id>`; rejects with ❌ or `/contract reject <id>`. On approval → append the `SIGNED` event to the ledger (`source='discord'`, `approved_by` = commissioner) → trigger the report rebuild (call into `sda.reports.build`) → post the updated report link in the channel.
 6. **One-day rule.** A separate lightweight loop (or a `/contract check` command) matches recent Fantrax adds against announcements: no announcement within 1 day of the add → append `DEFAULTED_1YR` (`source='system'`) and post a notice in the channel.
 
+## Cap-trade announcements
+
+Managers announce cap-space trades in the same announcements channel; the bot tracks them (cap tracking starts at 78 per team per season — no historical trades imported):
+
+1. **Parse.** Strict format first:
+   `📝 CAP TRADE: <from_team> sends <N> years to <to_team>`
+   Fall back to lenient parsing (team names via config/`teams` table, a year count which may be fractional, e.g. 2.5). If parsing fails, reply asking for the format — don't guess.
+2. **Validate.** Both teams resolve to known `team_id`s; N is positive and finite. (No cap-room check on the *sending* team — trading away space is always legal; it just reduces their effective cap.)
+3. **Queue + confirm.** Insert into `pending_contracts` (with a `kind='cap_trade'` marker or equivalent — extend the table if needed) and post a confirmation card: from → to, years, each team's resulting effective cap.
+4. **Approve.** Same ✅/❌ flow as signings. On approval → append **two** `CAP_TRADE` events: `-N` years on the sending team, `+N` years on the receiving team (`source='discord'`, `approved_by` = commissioner) → rebuild reports → post the updated cap-tracker link.
+
 ## Robustness requirements
 
 - **Startup catch-up:** on launch, scan channel history since the last processed message ID (persist it in the DB). The laptop sleeps — nothing may be lost or double-processed.
@@ -49,7 +60,7 @@ The bot runs on the commissioner's Mac via `launchd` (auto-start on boot). Docum
 
 ## Acceptance criteria
 
-- Parser tests: the exact `📝 SIGNING:` format, three realistic free-text variants, and three malformed messages (which must NOT parse).
+- Parser tests: the exact `📝 SIGNING:` format, three realistic free-text variants, and three malformed messages (which must NOT parse). Same coverage for the `📝 CAP TRADE:` format (including a fractional-years case).
 - End-to-end dry run: a fake announcement for a player that would break the cap → confirmation card shows the cap rule failing → nothing written to the ledger or `pending_contracts` beyond the queued row.
 - Restart test: kill mid-queue, restart, no duplicate announcements processed.
 - The token appears nowhere in logs, the DB, or the repo (test asserts this).

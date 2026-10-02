@@ -31,7 +31,7 @@
 
 ## Prompt 3 — Sheets migration (one-time backfill)
 
-- Source: "SDA - Major League Contract Tracker" (CSV export or Sheets API). Commissioner's local copy lives at `/Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/` — **one CSV per tab is needed** (every team tab, Salary Cap Tracking, Estimated Free Agent Class). Note: the file shared so far (`... - Intro Page.csv`) appears to be only the Intro Page tab; the migration needs all of them. In Google Sheets: File → Download → Comma-separated values, once per tab (switch tabs via the bottom bar).
+- Source: "SDA - Major League Contract Tracker" (CSV export or Sheets API). Commissioner's local copy lives at `/Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/` — **one CSV per team tab is needed** (10 team tabs only). The Salary Cap Tracking, Estimated Free Agent Class, and League History tabs are deliberately NOT migrated: cap tracking restarts at 78/team/season (future trades via Discord), FA projection is derived from `fa_year`, and history accumulates from the Fantrax API going forward.
 - Map columns — Player, Pos, FA Year, Move Type (Draft / Waiver / DFA / NULL), Legal flag, IL, Dropped, Years, Year added — into `contract_events` with `source=migration`. Move Type `DFA` → `roster_level=minors` (not a move type).
 - Produce a **reconciliation report**: every Sheet player matched to a Fantrax roster entry; orphans listed; cap totals recomputed vs the Sheet's Salary Cap Tracking tab; every discrepancy flagged for commissioner review before cutover.
 - Import the Cap Trade Tracker rows as first-class CAP_TRADE events (supported per commissioner; recommend committee ratification since the constitution is silent).
@@ -66,7 +66,8 @@ Static Jinja2 pages on the league website (see Prompt 7 / website notes). Mobile
 - **Report 2 — Free-agent projection.** FA class by year (from the Estimated Free Agent Class concept); multi-year expirations highlighted.
 - **Report 3 — Waiver wire.** Top 10 highest-rostered players currently on waivers (recently dropped — not free agents); fewer than 10 is fine. Source: Fantrax player-pool feed filtered by waiver status (confirm exact feed during build; fallback is the players CSV export).
 - **Report 4 — Standings.** Sortable table: every team ranked by category totals and category points (R, HR, RBI, SB, OBP / QS, K, ERA, WHIP, SVH). Click-to-sort columns.
-- **Report 5 — League history.** Season records, champions, prize-money winnings (seeded from migration; appended each season).
+- **Report 5 — League history (built from scratch).** All-time leaderboard (seasons, W-L-T, championships, runner-ups, regular-season 1sts, playoff appearances) + yearly records (champion, runner-up, regular-season best, prizes). Accumulates week-to-week from the Fantrax API via the nightly pipeline; season finalized by commissioner at year end.
+- **Report 6 — Salary cap tracker (built from scratch).** Per team per season: base 78 + IL relief ± cap trades = effective cap; committed vs remaining. Starts at 78 for everyone; Discord-announced trades accumulate.
 - Supporting views: contract ledger (audit trail), validation report, transaction log.
 - Scope rule (per commissioner): contract views cover multi-year players only; 1-year/expiring players live in the FA projection.
 - Distribution: Discord bot posts the report link after each regeneration (link unfurl); archive copy to Google Drive.
@@ -102,4 +103,4 @@ Static Jinja2 pages on the league website (see Prompt 7 / website notes). Mobile
 6. **26-man roster requirement (future):** currently teams may carry fewer; commissioner wants to require 26 → rules committee. System supports via `min_mlb_roster` config.
 7. **Approval UX edge:** commissioner approving his own team's signings — note in the bot prompt (suggest a league-visible log).
 8. **Out of scope for v1:** two-way player lineup handling, the GS band (3–10 starts) for ERA/WHIP — scoring concerns, not contract concerns.
-9. **Phase 2 — minors module:** call-up detection, MLB↔minors shuttle flagging, graduation tracking (MLB roster + 1,000 AB / 200 IP) with warnings; MLB Stats API as the likely career-stat feed.
+9. **Minors bios (now):** every rostered minor leaguer carries age + career MLB AB/IP from the free MLB Stats API (no key), shown in the Report-1 minors section for arrival projection. **Phase 2 — minors module:** call-up detection, MLB↔minors shuttle flagging, graduation tracking (MLB roster + 1,000 AB / 200 IP) with warnings.

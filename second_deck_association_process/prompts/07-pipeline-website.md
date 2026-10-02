@@ -16,9 +16,10 @@ One command that runs the whole system end to end, on a schedule, with alerting 
 2. **Detect** — diff the new rosters against the previous `roster_snapshots`: new adds, drops, call-ups, MLB↔minors moves. Record the snapshot.
 3. **Validate** — `sda.validation` engine over the ledger + fresh snapshot. On any failure: continue the run (don't abort the reports), but flag for alerting.
 4. **One-day rule** — V12: new adds without a matching announcement in 1 day → `DEFAULTED_1YR` events (source='system').
-5. **Rebuild** — `sda.reports --season 2027` → fresh `site/`.
-6. **Snapshot & commit** — export DB text snapshots to `data/snapshots/<today>/`, `git add` snapshots + `site/`, commit with message `nightly: <date> (<n> validation failures)`, push.
-7. **Alert** — if validation failed OR any `DEFAULTED_1YR` was applied: DM/post to the commissioner via the Discord bot (a simple webhook or bot message; read the channel ID from config).
+5. **History** — `sda.db history-update --season <season>`: upsert the current season's `team_season_history` rows from the fresh standings snapshot (league history accumulates from the API going forward — never from the old Sheet). Season finalization (champion/runner-up/regular-season-first) is a manual commissioner step at year end (`history-finalize`), not part of the nightly run.
+6. **Rebuild** — `sda.reports --season 2027` → fresh `site/`.
+7. **Snapshot & commit** — export DB text snapshots to `data/snapshots/<today>/`, `git add` snapshots + `site/`, commit with message `nightly: <date> (<n> validation failures)`, push.
+8. **Alert** — if validation failed OR any `DEFAULTED_1YR` was applied: DM/post to the commissioner via the Discord bot (a simple webhook or bot message; read the channel ID from config).
 
 Idempotency: re-running the same night must not duplicate events, snapshots, or commits. Use content hashes on snapshots and a "already ran today" marker.
 
@@ -45,6 +46,6 @@ Update the pipeline's commit step to include the Pages publish path.
 
 ## Acceptance criteria
 
-- Full dry run on the fixture DB: `python -m sda.pipeline --season 2027 --dry-run` executes all 7 steps without writing to the real DB, committing nothing, sending no alerts — but printing exactly what it *would* do.
+- Full dry run on the fixture DB: `python -m sda.pipeline --season 2027 --dry-run` executes all 8 steps without writing to the real DB, committing nothing, sending no alerts — but printing exactly what it *would* do.
 - Idempotency test: run twice against fixtures; second run produces zero new events and no new commit.
 - The docs are complete enough that a new commissioner could operate the system from README + OPERATIONS.md alone.

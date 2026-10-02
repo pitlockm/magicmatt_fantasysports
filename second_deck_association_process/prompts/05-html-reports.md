@@ -21,7 +21,7 @@ Reproduces the spreadsheet's visualization: **teams × the next 7 seasons**, eac
 
 ### Report 2 — Free-agent projection
 FA class by year (2027, 2028, …): which multi-year deals expire when, grouped by team, expiring stars highlighted. This is where 1-year/expiring players live.
-- **FA-year formula (binding):** `fa_year` on the contract event is the *first year the player is a free agent*. Display both: "signed through {fa_year − 1}" and "FA in {fa_year}". A 5-year deal signed for 2027 shows "through 2031 — FA 2032".
+- **FA-year formula (binding):** `fa_year` on the contract event is the *first year the player is a free agent* = signing season + contract years (no minus one). A 3-year deal signed in 2026 means team control for 26/27/28 → "signed through 2028 — FA 2029". Display both halves: "through {fa_year − 1}" and "FA in {fa_year}".
 
 ### Report 3 — Waiver wire
 Top 10 **highest-rostered players currently on waivers** (recently dropped — not free agents). Fewer than 10 is fine; show what's there. Columns: player, position, dropped-by team, days on waivers, roster%.

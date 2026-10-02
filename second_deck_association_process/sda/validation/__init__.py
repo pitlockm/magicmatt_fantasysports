@@ -1,0 +1,1 @@
+"""Deterministic league rule validation."""

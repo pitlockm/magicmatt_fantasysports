@@ -1,0 +1,1 @@
+"""Fantrax API integration."""

@@ -1,0 +1,35 @@
+{
+  "playerIds": {
+    "player-1": {
+      "fantraxId": "player-1",
+      "name": "Shohei Ohtani",
+      "positions": ["DH", "P"],
+      "mlbTeam": {"abbreviation": "LAD"}
+    },
+    "player-2": {
+      "fantraxId": "player-2",
+      "name": "Prospect Example",
+      "position": "OF",
+      "team": "SEA"
+    }
+  },
+  "teamRosters": {
+    "rosters": {
+      "team-1": {
+      "teamName": "SDA Sluggers",
+      "rosterItems": [
+        {
+          "id": "player-1",
+          "status": "INJURED_RESERVE",
+          "position": "DH"
+        },
+        {
+          "id": "player-2",
+          "status": "MINORS",
+          "position": "OF"
+        }
+      ]
+    }
+    }
+  }
+}

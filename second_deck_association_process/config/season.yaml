@@ -1,0 +1,9 @@
+league_id: 4fyzhujxmk7scnaf
+season: 2027
+opening_day: 2027-03-25
+freeze_date: 2027-04-25   # rule: opening_day + 30 days; must always precede the MLB rookie draft (mid-July)
+trade_deadline: null      # TODO: pull Fantrax's default when the 2027 season rolls over (2026 was Aug 12)
+draft_start: 2027-03-13
+draft_end: 2027-03-18     # finishes one week before Opening Day
+min_mlb_roster: null      # no minimum enforced yet; a future rule may require 26
+discord_announcements_channel_id: 1496593362135027963

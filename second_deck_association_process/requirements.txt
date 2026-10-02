@@ -1,0 +1,7 @@
+requests
+jinja2
+discord.py
+pyyaml
+python-dotenv
+pytest
+duckdb

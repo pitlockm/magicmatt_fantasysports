@@ -1,0 +1,26 @@
+[
+  {
+    "check_name":"dim_players_missing_primary_position",
+    "table_name":"dim_players",
+    "metric_value":7168,
+    "threshold":0,
+    "severity":"high",
+    "status":"warn"
+  },
+  {
+    "check_name":"dim_players_missing_primary_team",
+    "table_name":"dim_players",
+    "metric_value":7168,
+    "threshold":0,
+    "severity":"high",
+    "status":"warn"
+  },
+  {
+    "check_name":"dim_players_total_rows",
+    "table_name":"dim_players",
+    "metric_value":7168,
+    "threshold":0,
+    "severity":"info",
+    "status":"pass"
+  }
+]

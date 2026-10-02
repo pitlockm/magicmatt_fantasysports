@@ -1,0 +1,4 @@
+check_name,table_name,metric_value,threshold,severity,status
+dim_players_missing_primary_position,dim_players,7168,0,high,warn
+dim_players_missing_primary_team,dim_players,7168,0,high,warn
+dim_players_total_rows,dim_players,7168,0,info,pass

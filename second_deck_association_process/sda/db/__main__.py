@@ -8,7 +8,8 @@ from datetime import date
 from pathlib import Path
 
 from sda.db.connection import DEFAULT_DATABASE_PATH, open_database
-from sda.db.schema import seed_players, seed_teams, sync_season_config, initialize_database
+from sda.db.history import derive_playoff_champion, finalize_season, update_current_season
+from sda.db.schema import initialize_database, seed_players, seed_teams, sync_season_config
 from sda.db.snapshots import export_text_snapshot
 from sda.fantrax.snapshots import load_snapshot
 
@@ -33,6 +34,30 @@ def _build_parser() -> argparse.ArgumentParser:
     snapshot_parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     snapshot_parser.add_argument("--date", type=date.fromisoformat, default=date.today())
     snapshot_parser.add_argument("--dry-run", action="store_true", help="Describe export without writing.")
+
+    history_update_parser = subparsers.add_parser(
+        "history-update",
+        help="Update the current season from the latest standings snapshot.",
+    )
+    history_update_parser.add_argument("--season", type=int, required=True)
+    history_update_parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE_PATH)
+    history_update_parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
+    history_update_parser.add_argument("--dry-run", action="store_true")
+
+    history_finalize_parser = subparsers.add_parser(
+        "history-finalize",
+        help="Record commissioner-confirmed final season results.",
+    )
+    history_finalize_parser.add_argument("--season", type=int, required=True)
+    history_finalize_parser.add_argument("--champion")
+    history_finalize_parser.add_argument("--runner-up")
+    history_finalize_parser.add_argument("--regular-season-first")
+    history_finalize_parser.add_argument("--prize-champion", type=float)
+    history_finalize_parser.add_argument("--prize-runner-up", type=float)
+    history_finalize_parser.add_argument("--notes")
+    history_finalize_parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE_PATH)
+    history_finalize_parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
+    history_finalize_parser.add_argument("--dry-run", action="store_true")
     return parser
 
 
@@ -47,6 +72,53 @@ def main(argv: list[str] | None = None) -> int:
             LOGGER.info("Would initialize %s using %s", args.database, args.config)
             return 0
         return _initialize(args.database, args.config, args.data_dir)
+
+    if args.command == "history-update":
+        if args.dry_run:
+            LOGGER.info("Would update season %d from the latest standings snapshot", args.season)
+            return 0
+        try:
+            standings = load_snapshot("standings", root=args.data_dir / "raw")
+            count = update_current_season(args.season, standings, args.database)
+        except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
+            LOGGER.error("History update failed: %s", error)
+            return 1
+        LOGGER.info("Updated %d team history row(s) for %d", count, args.season)
+        return 0
+
+    if args.command == "history-finalize":
+        if args.dry_run:
+            LOGGER.info("Would finalize season %d", args.season)
+            return 0
+        champion_id = args.champion
+        if champion_id is None:
+            try:
+                matchups = load_snapshot("matchup_scores", root=args.data_dir / "raw")
+            except FileNotFoundError:
+                matchups = None
+            champion_id = derive_playoff_champion(matchups)
+            if champion_id is None:
+                LOGGER.error(
+                    "Playoff payload does not unambiguously identify a champion; "
+                    "provide --champion <team_id> after commissioner review"
+                )
+                return 2
+        try:
+            finalize_season(
+                args.season,
+                champion_id,
+                args.runner_up,
+                args.regular_season_first,
+                args.database,
+                prize_champion=args.prize_champion,
+                prize_runner_up=args.prize_runner_up,
+                notes=args.notes,
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            LOGGER.error("History finalization failed: %s", error)
+            return 1
+        LOGGER.info("Finalized season %d", args.season)
+        return 0
 
     if args.dry_run:
         LOGGER.info("Would export %s to %s/snapshots/%s", args.database, args.data_dir, args.date)

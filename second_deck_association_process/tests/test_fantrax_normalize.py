@@ -1,6 +1,7 @@
 """Tests for Fantrax payload normalization and player aliases."""
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ def test_normalizes_player_and_team_roster_payload() -> None:
     }
     assert rosters["team-1"]["team_name"] == "SDA Sluggers"
     assert [player["id"] for player in rosters["team-1"]["mlb_roster"]] == ["player-1"]
+    assert rosters["team-1"]["mlb_roster"][0]["roster_level"] == "IL"
     assert [player["id"] for player in rosters["team-1"]["minors_roster"]] == ["player-2"]
     assert rosters["team-1"]["il_slots_used"] == 1
 
@@ -57,3 +59,46 @@ def test_alias_seed_omits_ambiguous_player_names(tmp_path: Path) -> None:
     aliases = seed_aliases(payload, path=tmp_path / "aliases.json")
 
     assert aliases == {"unique player": "player-3"}
+
+
+def test_roster_status_enum_controls_slot_classification(caplog) -> None:
+    """Use Fantrax's exact fantasy roster-slot enum, not injury/position labels."""
+    payload = {
+        "rosters": {
+            "team-1": {
+                "teamName": "Team One",
+                "rosterItems": [
+                    {"id": "il-player", "status": "INJURED_RESERVE", "position": "OF"},
+                    {
+                        "id": "active-player",
+                        "status": "ACTIVE",
+                        "position": "IL",
+                        "injuryNote": "injured reserve",
+                        "rosterSlot": "IL",
+                    },
+                    {"id": "minors-player", "status": "MINORS", "position": "P", "rosterSlot": "IL"},
+                    {"id": "reserve-player", "status": "reserve", "position": "1B"},
+                    {"id": "unknown-player", "status": "UNKNOWN", "position": "IL"},
+                    {"id": "missing-player", "position": "OF"},
+                ],
+            }
+        }
+    }
+
+    with caplog.at_level(logging.WARNING):
+        rosters = normalize_rosters(payload)["team-1"]
+    levels = {
+        player["id"]: player["roster_level"]
+        for player in rosters["mlb_roster"] + rosters["minors_roster"]
+    }
+
+    assert levels == {
+        "il-player": "IL",
+        "active-player": "MLB",
+        "minors-player": "minors",
+        "reserve-player": "MLB",
+        "unknown-player": "MLB",
+        "missing-player": "MLB",
+    }
+    assert rosters["il_slots_used"] == 1
+    assert sum("Unrecognized or missing Fantrax roster status" in record.message for record in caplog.records) == 2

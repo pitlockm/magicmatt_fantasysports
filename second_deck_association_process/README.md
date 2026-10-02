@@ -23,3 +23,7 @@ Implement the project in the order defined by Prompts 0 through 7: 0) scaffoldin
 ## Development
 
 Install dependencies with `pip install -r requirements.txt`, run tests with `pytest`, and inspect pipeline options with `python -m sda.pipeline --help`. The pipeline currently provides a stub CLI and a `--dry-run` option.
+
+The one-time Sheets backfill is previewed with `python -m sda.db.migrate`; it requires CSV exports for the ten team tabs only. Salary Cap Tracking, Estimated Free Agent Class, and League History are intentionally excluded. The reconciliation checks migrated contracts against the 78-year cap plus Fantrax IL-slot relief. Resolve all row exceptions and cap errors before using `--commit`. If Fantrax team names/managers do not match the tab names exactly, supply a JSON tab-to-team-ID file with `--team-map`.
+
+Season history is updated from the latest saved standings with `python -m sda.db history-update --season 2027` and finalized with `python -m sda.db history-finalize`. Minor-leaguer bios are refreshed from the latest roster snapshot with `python -m sda.mlb refresh --minors-only`; exact MLB Stats API name matches are required, and unmatched bio fields remain null.

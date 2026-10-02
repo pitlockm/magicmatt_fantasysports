@@ -96,6 +96,7 @@ def test_text_snapshot_rebuilds_identical_tables(tmp_path: Path) -> None:
                 "roster_snapshots",
                 "pending_contracts",
                 "season_config",
+                "team_season_history",
                 "league_history",
             ):
                 source_rows = source.execute(f"SELECT * FROM {table_name} ORDER BY ALL").fetchall()

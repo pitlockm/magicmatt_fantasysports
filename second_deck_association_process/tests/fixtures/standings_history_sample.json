@@ -1,0 +1,4 @@
+[
+  {"teamName": "Team One", "teamId": "team-1", "rank": 1, "points": "10-2-0", "winPercentage": 0.833},
+  {"teamName": "Team Two", "teamId": "team-2", "rank": 2, "points": "8-4-0", "winPercentage": 0.667}
+]

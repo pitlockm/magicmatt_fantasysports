@@ -27,6 +27,12 @@ _ROSTER_KEYS = ("players", "roster", "rosterEntries", "playerList", "teamRoster"
 _PLAYER_ID_KEYS = ("playerId", "playerID", "player_id", "fantraxId", "id")
 _TEAM_ID_KEYS = ("teamId", "teamID", "team_id", "id")
 _NAME_KEYS = ("name", "playerName", "fullName", "displayName")
+_FANTRAX_ROSTER_STATUSES = {
+    "ACTIVE": "MLB",
+    "RESERVE": "MLB",
+    "MINORS": "minors",
+    "INJURED_RESERVE": "IL",
+}
 
 
 def normalize_players(payload: Any) -> dict[str, dict[str, Any]]:
@@ -88,16 +94,26 @@ def normalize_rosters(
             player_id = str(player_id)
             known_player = player_lookup.get(player_id, {})
             player_name = _text(_first(record, _NAME_KEYS)) or _text(known_player.get("name"))
-            status = _text(_first(record, ("status", "rosterStatus", "fantasyStatus")))
-            roster_slot = _text(_first(record, ("rosterSlot", "slot", "position")))
-            is_minor = explicitly_minor or _is_minor(record, status, roster_slot)
-            if _is_il_slot(status, roster_slot):
+            status = _text(_first(record, ("status",)))
+            status_level = _FANTRAX_ROSTER_STATUSES.get(status.upper()) if status else None
+            roster_slot = _text(_first(record, ("rosterSlot", "slot")))
+            is_minor = explicitly_minor or status_level == "minors" or _is_minor(record, None, roster_slot)
+            if status_level is not None:
+                roster_level = "minors" if is_minor else status_level
+            else:
+                LOGGER.warning(
+                    "Unrecognized or missing Fantrax roster status for player %s; "
+                    "using explicit-slot fallback",
+                    player_id,
+                )
+                roster_level = "minors" if is_minor else "IL" if _legacy_il_slot(roster_slot) else "MLB"
+            if roster_level == "IL":
                 il_slots_used += 1
 
             roster_player = {
                 "id": player_id,
                 "name": player_name,
-                "roster_level": "minors" if is_minor else "IL" if _is_il_slot(status, roster_slot) else "MLB",
+                "roster_level": roster_level,
                 "positions": _normalize_positions(
                     _first(record, ("positions", "position", "pos"))
                 ) or list(known_player.get("positions", [])),
@@ -317,9 +333,15 @@ def _is_minor(record: Mapping[str, Any], status: str | None, roster_slot: str | 
     return any(marker in labels for marker in ("minor", "farm", "prospect"))
 
 
-def _is_il_slot(status: str | None, roster_slot: str | None) -> bool:
-    labels = " ".join(value or "" for value in (status, roster_slot)).casefold()
-    compact = re.sub(r"[^a-z0-9]", "", labels)
+def _legacy_il_slot(roster_slot: str | None) -> bool:
+    """Read explicit legacy slot labels; status and position never imply IL.
+
+    Current Fantrax status enums identify fantasy slots. Constitution section
+    2.4 permits IL classification only for an MLB IL slot, not real-life status.
+    """
+    if not roster_slot:
+        return False
+    compact = re.sub(r"[^a-z0-9]", "", roster_slot.casefold())
     return "injuredreserve" in compact or "injuredlist" in compact or bool(
-        re.search(r"\bil\d*\b", labels)
+        re.fullmatch(r"il\d*", compact)
     )

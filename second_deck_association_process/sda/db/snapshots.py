@@ -17,6 +17,7 @@ TABLE_NAMES = (
     "roster_snapshots",
     "pending_contracts",
     "season_config",
+    "team_season_history",
     "league_history",
 )
 _SEQUENCES = {

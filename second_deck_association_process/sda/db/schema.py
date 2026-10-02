@@ -30,8 +30,19 @@ CREATE TABLE IF NOT EXISTS players (
     positions VARCHAR,
     mlb_team VARCHAR,
     real_draft_year INTEGER,
-    aliases VARCHAR
+    aliases VARCHAR,
+    birthdate DATE,
+    career_ab INTEGER,
+    career_ip DOUBLE,
+    mlbam_id INTEGER,
+    bio_refreshed_at TIMESTAMP
 );
+
+ALTER TABLE players ADD COLUMN IF NOT EXISTS birthdate DATE;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS career_ab INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS career_ip DOUBLE;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS mlbam_id INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_refreshed_at TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS contract_events (
     event_id INTEGER PRIMARY KEY DEFAULT nextval('contract_event_id_seq'),
@@ -90,15 +101,43 @@ CREATE TABLE IF NOT EXISTS season_config (
     cap_years INTEGER NOT NULL DEFAULT 78
 );
 
+CREATE TABLE IF NOT EXISTS team_season_history (
+    season INTEGER NOT NULL,
+    team_id VARCHAR NOT NULL REFERENCES teams(team_id),
+    w INTEGER NOT NULL DEFAULT 0,
+    l INTEGER NOT NULL DEFAULT 0,
+    t INTEGER NOT NULL DEFAULT 0,
+    regular_season_rank INTEGER,
+    made_playoffs BOOLEAN,
+    playoff_finish VARCHAR CHECK (
+        playoff_finish IN ('champion', 'runner_up', 'semifinal', 'quarterfinal')
+    ),
+    PRIMARY KEY (season, team_id)
+);
+
 CREATE TABLE IF NOT EXISTS league_history (
     season INTEGER PRIMARY KEY,
-    champion VARCHAR,
-    runner_up VARCHAR,
-    regular_1st VARCHAR,
+    champion_team_id VARCHAR REFERENCES teams(team_id),
+    runner_up_team_id VARCHAR REFERENCES teams(team_id),
+    regular_season_first_team_id VARCHAR REFERENCES teams(team_id),
     prize_champion DOUBLE,
     prize_runner_up DOUBLE,
     notes VARCHAR
 );
+
+CREATE OR REPLACE VIEW team_all_time_history AS
+SELECT
+    team_id,
+    COUNT(*) AS seasons_played,
+    SUM(w) AS all_time_w,
+    SUM(l) AS all_time_l,
+    SUM(t) AS all_time_t,
+    SUM(CASE WHEN playoff_finish = 'champion' THEN 1 ELSE 0 END) AS championships,
+    SUM(CASE WHEN playoff_finish = 'runner_up' THEN 1 ELSE 0 END) AS runner_ups,
+    SUM(CASE WHEN regular_season_rank = 1 THEN 1 ELSE 0 END) AS regular_season_firsts,
+    SUM(CASE WHEN made_playoffs THEN 1 ELSE 0 END) AS playoff_appearances
+FROM team_season_history
+GROUP BY team_id;
 
 CREATE OR REPLACE VIEW current_contracts AS
 WITH ranked_events AS (
@@ -132,7 +171,32 @@ WHERE event_rank = 1 AND event_type NOT IN ('DROPPED', 'EXPIRED');
 
 def create_schema(connection: duckdb.DuckDBPyConnection) -> None:
     """Create all SDA tables and views without altering existing rows."""
+    _drop_empty_legacy_league_history(connection)
     connection.execute(SCHEMA_SQL)
+
+
+def _drop_empty_legacy_league_history(connection: duckdb.DuckDBPyConnection) -> None:
+    tables = connection.execute(
+        "SELECT count(*) FROM information_schema.tables "
+        "WHERE table_schema = 'main' AND table_name = 'league_history'"
+    ).fetchone()[0]
+    if not tables:
+        return
+    columns = {
+        row[0]
+        for row in connection.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'main' AND table_name = 'league_history'"
+        ).fetchall()
+    }
+    if "champion" not in columns or "champion_team_id" in columns:
+        return
+    row_count = connection.execute("SELECT count(*) FROM league_history").fetchone()[0]
+    if row_count:
+        raise RuntimeError(
+            "Legacy league_history contains rows; refusing to discard them while changing its schema"
+        )
+    connection.execute("DROP TABLE league_history")
 
 
 def initialize_database(database_path: Path = DEFAULT_DATABASE_PATH) -> Path:

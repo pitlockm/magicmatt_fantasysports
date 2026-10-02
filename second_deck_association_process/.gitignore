@@ -1,5 +1,9 @@
 .env
-data/
+data/*
+!data/snapshots/
+data/snapshots/*
+!data/snapshots/**/
+!data/snapshots/**/*.csv
 __pycache__/
 *.py[cod]
 .pytest_cache/

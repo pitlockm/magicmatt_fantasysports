@@ -97,6 +97,7 @@ def normalize_rosters(
             roster_player = {
                 "id": player_id,
                 "name": player_name,
+                "roster_level": "minors" if is_minor else "IL" if _is_il_slot(status, roster_slot) else "MLB",
                 "positions": _normalize_positions(
                     _first(record, ("positions", "position", "pos"))
                 ) or list(known_player.get("positions", [])),

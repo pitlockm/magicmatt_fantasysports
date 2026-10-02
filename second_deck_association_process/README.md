@@ -14,6 +14,8 @@ The SDA project is a Python 3.11+ data pipeline for the Second Deck Association 
 - `tests/fixtures/`: reusable test data.
 - `data/`: local raw snapshots and DuckDB database; ignored by Git.
 
+The database initializes with `python -m sda.db init`; `python -m sda.db snapshot` exports a date-stamped CSV snapshot. Raw API data and the live DuckDB file stay ignored, while `data/snapshots/` CSV exports are intentionally trackable. Contract events are append-only; cap-trade rows use signed `years` values and no player ID, and dropped-deal charges follow the configured league penalty schedule.
+
 ## Build order
 
 Implement the project in the order defined by Prompts 0 through 7: 0) scaffolding and shared conventions, 1) Fantrax client, 2) data model and ledger, 3) Sheets migration, 4) validation engine, 5) HTML reports, 6) Discord bot, and 7) pipeline website and nightly orchestration.

@@ -17,6 +17,7 @@ from sda.fantrax.normalize import normalize_players
 SCHEMA_SQL = """
 CREATE SEQUENCE IF NOT EXISTS contract_event_id_seq START 1;
 CREATE SEQUENCE IF NOT EXISTS pending_contract_id_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS announcement_id_seq START 1;
 
 CREATE TABLE IF NOT EXISTS teams (
     team_id VARCHAR PRIMARY KEY,
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS players (
     career_ab INTEGER,
     career_ip DOUBLE,
     mlbam_id INTEGER,
-    bio_refreshed_at TIMESTAMP
+    bio_refreshed_at TIMESTAMP,
+    real_life_il BOOLEAN
 );
 
 ALTER TABLE players ADD COLUMN IF NOT EXISTS birthdate DATE;
@@ -43,6 +45,7 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS career_ab INTEGER;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS career_ip DOUBLE;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS mlbam_id INTEGER;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS bio_refreshed_at TIMESTAMP;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS real_life_il BOOLEAN;
 
 CREATE TABLE IF NOT EXISTS contract_events (
     event_id INTEGER PRIMARY KEY DEFAULT nextval('contract_event_id_seq'),
@@ -89,6 +92,15 @@ CREATE TABLE IF NOT EXISTS pending_contracts (
     status VARCHAR NOT NULL DEFAULT 'pending' CHECK (
         status IN ('pending', 'approved', 'rejected', 'expired')
     )
+);
+
+CREATE TABLE IF NOT EXISTS announcements (
+    announcement_id BIGINT PRIMARY KEY DEFAULT nextval('announcement_id_seq'),
+    message_id VARCHAR UNIQUE,
+    team_id VARCHAR NOT NULL,
+    fantrax_id VARCHAR NOT NULL,
+    announced_at TIMESTAMP NOT NULL,
+    raw_message VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS season_config (

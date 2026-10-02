@@ -79,6 +79,10 @@ def test_text_snapshot_rebuilds_identical_tables(tmp_path: Path) -> None:
     with open_database(source_path) as connection:
         connection.execute("INSERT INTO teams (team_id, team_name) VALUES ('t1', 'Team One')")
         connection.execute("INSERT INTO players (fantrax_id, name) VALUES ('p1', 'Player One')")
+        connection.execute(
+            "INSERT INTO announcements (team_id, fantrax_id, announced_at, raw_message) "
+            "VALUES ('t1', 'p1', TIMESTAMP '2027-02-01 12:00:00', 'signing')"
+        )
 
     event_id = append_event(
         "t1", "p1", "SIGNED", 2, 2029, "manual",
@@ -95,6 +99,7 @@ def test_text_snapshot_rebuilds_identical_tables(tmp_path: Path) -> None:
                 "contract_events",
                 "roster_snapshots",
                 "pending_contracts",
+                "announcements",
                 "season_config",
                 "team_season_history",
                 "league_history",

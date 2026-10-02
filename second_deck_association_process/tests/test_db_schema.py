@@ -37,6 +37,7 @@ def test_initialize_database_is_idempotent(tmp_path: Path) -> None:
         "contract_events",
         "roster_snapshots",
         "pending_contracts",
+        "announcements",
         "season_config",
         "team_season_history",
         "league_history",
@@ -52,7 +53,14 @@ def test_initialize_database_is_idempotent(tmp_path: Path) -> None:
                 "WHERE table_name = 'players'"
             ).fetchall()
         }
-    assert {"birthdate", "career_ab", "career_ip", "mlbam_id", "bio_refreshed_at"}.issubset(player_columns)
+    assert {
+        "birthdate",
+        "career_ab",
+        "career_ip",
+        "mlbam_id",
+        "bio_refreshed_at",
+        "real_life_il",
+    }.issubset(player_columns)
 
 
 def test_seed_teams_players_and_season_config(tmp_path: Path) -> None:

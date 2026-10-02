@@ -16,6 +16,7 @@ TABLE_NAMES = (
     "contract_events",
     "roster_snapshots",
     "pending_contracts",
+    "announcements",
     "season_config",
     "team_season_history",
     "league_history",
@@ -23,6 +24,7 @@ TABLE_NAMES = (
 _SEQUENCES = {
     "contract_event_id_seq": ("contract_events", "event_id"),
     "pending_contract_id_seq": ("pending_contracts", "pending_id"),
+    "announcement_id_seq": ("announcements", "announcement_id"),
 }
 
 

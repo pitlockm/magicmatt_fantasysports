@@ -55,7 +55,7 @@ CREATE TABLE roster_snapshots (
   snapshot_date DATE NOT NULL,
   team_id       VARCHAR NOT NULL,
   fantrax_id    VARCHAR NOT NULL,
-  roster_level  VARCHAR NOT NULL,    -- MLB | minors | IL
+  roster_level  VARCHAR NOT NULL,    -- MLB | minors | IL (IL = occupying a Fantrax IL slot; minors never IL)
   PRIMARY KEY (snapshot_date, team_id, fantrax_id)
 );
 
@@ -101,6 +101,7 @@ CREATE TABLE league_history (
 3. **Drop penalties are events.** When a player is dropped mid-contract, append a `DROPPED` event with the penalty years; the penalty then counts against the team's cap in each subsequent year per the schedule (see Prompt 4). Dropped multi-year players = "dead cap" and must stay queryable.
 4. **Derived state, not stored state.** "Current contracts" = latest non-expired event per (team, player). `years_remaining = fa_year - current_season`. Build this as a **view** (`current_contracts`), not a table.
 5. **One-day default.** If the validation engine (Prompt 4) finds a new Fantrax add with no matching announcement, it appends a `DEFAULTED_1YR` event (source='system'). The schema must support that flow.
+6. **IL is slot-based.** `roster_level = 'IL'` means the player occupies a Fantrax IL roster slot (manager action) — never inferred from real-life injury status. Minor-league players can never be `'IL'` (constitution §2.4: only players officially on the MLB Injured List are eligible). A real-life-IL player in an active/bench slot is `'MLB'`.
 
 ## What to build
 

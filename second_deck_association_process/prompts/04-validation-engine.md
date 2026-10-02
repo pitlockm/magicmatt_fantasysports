@@ -10,7 +10,7 @@ Encode the league's contract and roster rules as **deterministic checks** that r
 
 ## Rule sources
 
-- The league constitution ("Second Deck Association Final" — Articles IV, V): contracts 1–7 years for drafted/called-up players, 1–3 for in-season waiver/FA pickups; **78 contract-year cap** (+1 per player on the IL); drop penalty = half the remaining years, applied across subsequent years (no penalty for final-year drops); minors earn no contract years until called up; graduation at MLB roster + 1,000 career AB / 200 IP.
+- The league constitution ("Second Deck Association Final" — Articles II, IV, V): §2.4 IL — eight IL spots, only players officially on the MLB Injured List eligible, must be removed once activated in real life, +1 cap-year relief per player on the IL while they remain; contracts 1–7 years for drafted/called-up players, 1–3 for in-season waiver/FA pickups; **78 contract-year cap** (+1 per player on the IL); drop penalty = half the remaining years, applied across subsequent years (no penalty for final-year drops); minors earn no contract years until called up; graduation at MLB roster + 1,000 career AB / 200 IP.
 - Commissioner's tracked clarifications (treat as binding):
   - Cap-space trades are legal and adjust the effective cap.
   - Re-acquiring your own dropped player in-season caps at **3 years** (it's a waiver/FA pickup); the annual draft allows 1–7 for anyone.
@@ -22,7 +22,7 @@ Encode the league's contract and roster rules as **deterministic checks** that r
 
 | ID | Rule | Fail condition |
 |---|---|---|
-| V1 | Cap | `team_cap_committed(team, season)` > 78 + (# IL players) + net CAP_TRADE adjustments |
+| V1 | Cap | `team_cap_committed(team, season)` > 78 + (# players occupying Fantrax IL slots) + net CAP_TRADE adjustments |
 | V2 | Contract bounds | drafted/called-up player with years <1 or >7; in-season waiver/FA pickup with years <1 or >3 |
 | V3 | Re-sign tripwire | same team dropped a player and re-added him in-season with a new deal >3 years |
 | V4 | Duplicates | one `fantrax_id` on two teams' MLB rosters in the latest snapshot |
@@ -34,6 +34,7 @@ Encode the league's contract and roster rules as **deterministic checks** that r
 | V10 | Roster max | >26 MLB or >15 minors on any team |
 | V11 | Roster min | < `min_mlb_roster` (skip entirely while config is null) |
 | V12 | One-day signing | new Fantrax MLB add with no matching Discord announcement within 1 day → auto-append `DEFAULTED_1YR` event (`source='system'`) and include it in the report as an action taken |
+| V13 | IL eligibility | player occupying a Fantrax IL slot who is **not** on the real-life MLB IL (healthy stash — fail); any minor-league player classified IL (fail — constitution §2.4 bars it); real-life-IL player sitting in an active slot while the team claims IL cap relief for him (flag for commissioner review only — slot-based relief is pending rules-committee ratification, see `rules-committee/il-slot-brief.md`) |
 
 Each check returns: `rule_id`, `team_id`, `fantrax_id` (if player-specific), `passed: bool`, `detail: str`. The engine aggregates into a report object: per-team lists plus a league-wide summary count.
 

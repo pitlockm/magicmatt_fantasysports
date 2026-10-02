@@ -36,6 +36,7 @@ Build a Python client for **Fantrax's official API** (docs: https://www.fantrax.
 - `normalize.py` — converts raw API payloads into clean internal structures:
   - `players`: keyed by Fantrax `playerId`; fields: id, name, positions, mlb_team.
   - `rosters`: per team: team_id, team_name, mlb_roster[], minors_roster[], il_slots used.
+  - **IL classification rule (binding, constitution §2.4):** a player counts as on the IL **iff the manager placed him in a Fantrax IL roster slot** — never from real-life injury status alone. A real-life-IL player sitting in an active/bench slot is MLB. Minor-league players can never be IL ("Only players officially placed on the MLB Injured List are eligible"). Verify against the live `team_rosters` snapshot which fields reflect the manager's slot assignment vs. real-life status; if they can't be distinguished, report the shapes instead of guessing.
   - **Name-alias map**: a persistent JSON (`data/player_aliases.json`) mapping alternate spellings/nicknames → Fantrax player ID. This is how Google Sheet rows and Discord announcements (which use nicknames!) get matched to real players. Seed it from `getPlayerIds`; make it appendable.
 - CLI: `python -m sda.fantrax.snapshot --all` pulls everything and saves snapshots.
 

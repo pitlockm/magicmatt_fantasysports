@@ -1,0 +1,64 @@
+# PROMPT 3 — Sheets migration (one-time backfill)
+
+Copy everything below into Claude Code. Run this after Prompt 2. Build inside `second_deck_association_process/sda/db/` (as `migrate.py`, or a `sda/migrate/` package if it gets big).
+
+---
+
+## Goal
+
+One-time import of the league's existing contract data from the Google Sheet **"SDA - Major League Contract Tracker"** into the DuckDB ledger as `contract_events` with `source='migration'`. After this, the Sheet becomes a read-only reference — the ledger is the system of record.
+
+## Source data
+
+Local CSV exports live at:
+
+```
+/Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/
+```
+
+**One CSV per Sheet tab is required**: every team tab (Boe, Maloun, Hoffman, Pecora, C. Pelton, W. Pelton, Pitlock, Riggen, A. Rolain, M. Rolain), plus **Salary Cap Tracking** and **Estimated Free Agent Class**. Export via Google Sheets: File → Download → Comma-separated values, switching tabs along the bottom. If any tab's CSV is missing, the script must fail loudly listing exactly which are absent — never silently migrate a partial league.
+
+## Column mapping (team tabs)
+
+| Sheet column | → Ledger field / handling |
+|---|---|
+| Player Name | → match to `players.fantrax_id` via the Prompt-1 alias map. **Unmatched names go to an exceptions list, never guessed.** |
+| Pos. | → `players.positions` |
+| Free Agent Year | → `fa_year` |
+| Move Type: Draft / Waiver | → note field; determines the contract-bounds rule that applied |
+| Move Type: **DFA** | → **not a move type**: set `roster_level='minors'` (DFA was the old stand-in for minor-league status) |
+| Move Type: NULL / blank | → exceptions list for commissioner review |
+| Legal / Legal - Minors | → informational only; the new system *computes* legality (Prompt 4), it doesn't import the flag |
+| IL (Yes) | → cross-check against Fantrax Inj Res slots; record in note |
+| Dropped (Yes) + Years value (e.g. 0.5) | → `DROPPED` event with the penalty years shown |
+| Years (e.g. 1, 0.5) | → `years` for the SIGNED event being reconstructed |
+| Year added | → the `ts` year for the reconstructed SIGNED event (use Jan 1 of that year if no exact date) |
+
+Reconstruction logic per player row: one `SIGNED` event (years, fa_year, ts from Year added) plus, if Dropped=Yes, one `DROPPED` event (penalty years). `approved_by='migration'`, note=`migrated from <tab>`.
+
+## Cap trades
+
+Import the **Salary Cap Trade Tracker** section of the Salary Cap Tracking tab as `CAP_TRADE` events (team giving up years → negative adjustment; team receiving → positive). These are first-class per the commissioner's ruling.
+
+## League history
+
+Seed `league_history` from the tracker's **League History** tab (champions, records, prize winnings). Gaps stay NULL with a note — they'll be filled manually.
+
+## The reconciliation report (the real deliverable)
+
+Before anything is committed to the ledger, print a report:
+
+1. **Player match rate**: X/Y Sheet players matched to Fantrax IDs; every unmatched name listed with its tab.
+2. **Orphans**: players on a Fantrax MLB roster with no Sheet row (they need contracts!), and Sheet players on no Fantrax roster.
+3. **Cap check**: recomputed committed years per team from the migration vs the Sheet's Salary Cap Tracking tab — every discrepancy listed.
+4. **DFA/minors audit**: every row migrated as `roster_level='minors'` listed for spot-check.
+5. **Cap trades**: every imported CAP_TRADE event listed.
+
+The commissioner reviews this report and resolves the exceptions list. Only then does the script write to the ledger (gate it behind a `--commit` flag; default is dry-run printing the report).
+
+## Acceptance criteria
+
+- Dry run (default) prints the full reconciliation report and writes nothing.
+- `--commit` writes exactly the reviewed events; re-running `--commit` is idempotent (won't double-import — key off a `migration_batch` marker in `note`).
+- Missing-tab detection: fails loudly naming the absent tabs.
+- pytest: DFA→minors mapping test, drop-penalty reconstruction test, idempotency test.

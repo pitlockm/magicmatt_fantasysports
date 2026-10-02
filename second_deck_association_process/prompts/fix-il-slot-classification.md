@@ -1,35 +1,51 @@
-# PATCH — IL classification must be slot-based, never status-based
+# PATCH — IL classification: status enum IS the Fantrax slot (verified)
 
-Copy everything below into Claude Code. Run this against the already-implemented `sda/fantrax/normalize.py`. Build inside `second_deck_association_process/`.
+Copy everything below into Claude Code. Run against the implemented `sda/fantrax/normalize.py`. Build inside `second_deck_association_process/`.
 
 ---
 
-## Context
+## Verified payload shape (from the live `data/raw/<date>/team_rosters.json`)
 
-`sda/fantrax/normalize.py` currently classifies a roster entry as IL when **either** its real-life injury status **or** its Fantrax roster slot looks IL-ish (`_is_il_slot(status, roster_slot)` inspects `status`/`rosterStatus`/`fantasyStatus` as well as slot fields).
+Each `rosterItem` contains exactly three fields:
 
-Commissioner ruling (binding), grounded in constitution §2.4:
+- `id` — Fantrax player ID
+- `position` — the baseball position (1B, OF, SP, …). **Not** the roster slot.
+- `status` — one of `ACTIVE`, `MINORS`, `RESERVE`, `INJURED_RESERVE` (case may vary).
 
-- A player counts as **on the IL iff the manager placed him in a Fantrax IL roster slot** — a manager action. A player on the real-life MLB injured list who sits in an active/bench slot counts as **MLB, not IL** (managers sometimes choose not to use the slot).
-- **Minor-league players can never be classified IL.** Constitution §2.4: "Only players officially placed on the MLB Injured List are eligible." The current code already gives minors precedence over IL — keep that.
-- Real-life injury status is used only for **eligibility validation** (Prompt 4), never for classification.
+There is no separate `rosterSlot`/`slot`/`fantasyStatus`/`rosterStatus` field.
 
-## What to change
+## The ruling (binding, constitution §2.4 + commissioner)
 
-1. **Verify the live payload shape first.** Open the latest `data/raw/<date>/team_rosters.json` snapshot and confirm which fields reflect the manager's slot assignment (e.g. `rosterSlot`/`slot`/`position`) versus the player's real-life status (e.g. `status`/`rosterStatus`/`fantasyStatus`). If the slot cannot be distinguished from status in the actual payload, **stop and report the field shapes** instead of guessing.
-2. In `normalize.py`, determine IL **only** from the Fantrax roster-slot fields. Remove `status`-family fields from the IL determination entirely.
-3. Keep the precedence order: **minors > IL > MLB**. A minor leaguer is never IL, even with IL-ish markers.
-4. `il_slots_used` counts slot-based IL placements only.
-5. Document the rule in a comment/docstring citing constitution §2.4.
+**The `status` field IS the manager's Fantrax roster-slot assignment — not real-life injury status.**
+`ACTIVE`/`RESERVE`/`MINORS` are fantasy placements (a real-life status is never "RESERVE"); by parallel structure, `INJURED_RESERVE` is the fantasy IR slot, i.e. the manager moved the player there. (Fantrax may validate IR *eligibility* against the real-life IL, but the *placement* is a manager action — which is exactly what the slot-based rule keys on.)
+
+Classification — case-insensitive **exact** match on `status`:
+
+| status | roster_level |
+|---|---|
+| `MINORS` | `minors` |
+| `INJURED_RESERVE` | `IL` |
+| `ACTIVE`, `RESERVE` | `MLB` |
+| missing / unrecognized | `MLB` + warning log (never crash) |
+
+Rules:
+- A real-life-IL player the manager keeps active/bench shows `ACTIVE`/`RESERVE` → **MLB, not IL**. (Sanity check you can run: pick a known real-life-IL player left in an active slot and confirm his `status` is `ACTIVE`.)
+- Minor leaguers can never be IL (constitution §2.4: "Only players officially placed on the MLB Injured List are eligible"). With a single enum this can't collide, but keep the guard.
+- `il_slots_used` = count of `INJURED_RESERVE` entries.
+- `position` feeds the player's positions info only — never slot inference.
+- Replace the fuzzy IL label-matching (`"injured reserve"`/`"injured list"`/`il` regexes over status text) as the primary path. Keep the old heuristics **only** as a fallback for unrecognized payload shapes, logging a warning whenever the fallback fires — a clean enum must never be overruled by fuzzy text.
+- Document the enum and the ruling in a comment/docstring citing constitution §2.4.
 
 ## Tests to add/update
 
-- Real-life-IL player sitting in an active slot → `roster_level == "MLB"`, not counted in `il_slots_used`.
-- Player in a Fantrax IL slot → `roster_level == "IL"`, counted.
-- Minor leaguer with IL-ish markers → `"minors"`, never `"IL"`.
-- Entry with no recognizable slot → classify `"MLB"` and log a warning, never crash.
+- `status: INJURED_RESERVE` → `roster_level == "IL"`, counted in `il_slots_used`.
+- `status: ACTIVE` → `"MLB"` (even if the player is known to be on the real-life IL — the payload doesn't carry that, and that's the point).
+- `status: MINORS` → `"minors"`, never `"IL"`.
+- `status: RESERVE` → `"MLB"`.
+- Unknown/missing status → `"MLB"` + no crash.
+- No fuzzy status text influences the result when the enum is present (e.g. a `status` of `ACTIVE` with an injury-ish note elsewhere still classifies MLB).
 
 ## Acceptance criteria
 
-- `pytest` passes, including the new IL tests.
-- No `status`/`rosterStatus`/`fantasyStatus` field influences IL classification anywhere in the module (grep to confirm).
+- `pytest` passes, including the new enum tests.
+- `grep` confirms no injury-label regex decides IL classification when `status` holds a recognized enum value.

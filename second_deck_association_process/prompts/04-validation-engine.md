@@ -31,7 +31,7 @@ Encode the league's contract and roster rules as **deterministic checks** that r
 | V7 | Drop penalties | DROPPED event missing for a player who left mid-contract; penalty schedule wrong (constitution example: 5 yrs remaining → 2.5 assessed on drop, then 2, 1.5, 1, 0 across subsequent years; final-year drops = 0) |
 | V8 | Minors shuttle | contracted player sitting in a minors slot whose years are *not* in the team's cap total (Constitution 4.2: demoted-but-contracted players still count); also flag any player with 2+ MLB↔minors moves in 30 days for commissioner review |
 | V9 | Pool freeze | player with `real_draft_year == season` added after `freeze_date` |
-| V10 | Roster max | >26 MLB or >15 minors on any team |
+| V10 | Roster max | >26 MLB or >15 minors or >8 IL (Fantrax slot occupants) on any team |
 | V11 | Roster min | < `min_mlb_roster` (skip entirely while config is null) |
 | V12 | One-day signing | new Fantrax MLB add with no matching Discord announcement within 1 day → auto-append `DEFAULTED_1YR` event (`source='system'`) and include it in the report as an action taken |
 | V13 | IL eligibility | player occupying a Fantrax IL slot who is **not** on the real-life MLB IL (healthy stash — fail); any minor-league player classified IL (fail — constitution §2.4 bars it); real-life-IL player sitting in an active slot while the team claims IL cap relief for him (flag for commissioner review only — slot-based relief is pending rules-committee ratification, see `rules-committee/il-slot-brief.md`) |

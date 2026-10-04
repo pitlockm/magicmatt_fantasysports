@@ -63,6 +63,39 @@ def test_cap_trade_adjustments_change_room_and_are_season_scoped(tmp_path: Path)
     assert team_cap_committed("t1", 2028, database_path) == 0.0
 
 
+def test_form_event_persists_submission_provenance(tmp_path: Path) -> None:
+    """Retain Forms UUID, acquisition type, and submitted time on the immutable ledger row."""
+    database_path = tmp_path / "form-event.duckdb"
+    initialize_database(database_path)
+    with open_database(database_path) as connection:
+        connection.execute("INSERT INTO teams (team_id, team_name) VALUES ('t1', 'Team One')")
+        connection.execute("INSERT INTO players (fantrax_id, name) VALUES ('p1', 'Player One')")
+
+    append_event(
+        "t1",
+        "p1",
+        "SIGNED",
+        3,
+        2030,
+        "form",
+        ts=datetime(2027, 3, 15, 12),
+        form_ref="123e4567-e89b-12d3-a456-426614174000",
+        acquisition_type="drafted",
+        announced_at=datetime(2027, 3, 15, 12),
+        database_path=database_path,
+    )
+
+    with open_database(database_path, read_only=True) as connection:
+        assert connection.execute(
+            "SELECT source, form_ref, acquisition_type, announced_at FROM current_contracts"
+        ).fetchone() == (
+            "form",
+            "123e4567-e89b-12d3-a456-426614174000",
+            "drafted",
+            datetime(2027, 3, 15, 12),
+        )
+
+
 def test_minors_contract_events_are_rejected_and_do_not_count_toward_cap(tmp_path: Path) -> None:
     """Reject new minors deals and ignore legacy placeholders in cap queries."""
     database_path = tmp_path / "sda.duckdb"
@@ -152,6 +185,8 @@ def test_text_snapshot_rebuilds_identical_tables(tmp_path: Path) -> None:
                 "contract_events",
                 "roster_snapshots",
                 "pending_contracts",
+                "discord_bot_state",
+                "discord_processed_messages",
                 "announcements",
                 "season_config",
                 "team_season_history",

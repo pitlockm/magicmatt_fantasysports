@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="section-intro"><p>Append-only contract and cap-trade events. Entries are shown newest first.</p><span class="section-tag">AUDIT TRAIL</span></section>
-<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>When</th><th data-sort>Team</th><th data-sort>Player</th><th data-sort>Event</th><th data-sort>Years</th><th data-sort>FA year</th><th data-sort>Source</th><th>Note</th></tr></thead><tbody>
-{% for event in report.events %}<tr><td>{{ event.ts|date }}</td><td>{{ event.team_name }}</td><td>{{ event.player_name|value }}</td><td><span class="event-type">{{ event.event_type }}</span></td><td>{{ event.years|number }}</td><td>{{ event.fa_year|value }}</td><td>{{ event.source }}</td><td>{{ event.note|value }}</td></tr>
-{% else %}<tr><td colspan="8" class="empty">The contract ledger is empty.</td></tr>{% endfor %}</tbody></table></div>
+<div class="table-wrap"><table class="data-table sortable"><thead><tr><th data-sort>When</th><th data-sort>Team</th><th data-sort>Player</th><th data-sort>Event</th><th data-sort>Years</th><th data-sort>FA year</th><th data-sort>Source</th><th>Form ref / type</th><th>Note</th></tr></thead><tbody>
+{% for event in report.events %}<tr><td>{{ event.ts|date }}</td><td>{{ event.team_name }}</td><td>{{ event.player_name|value }}</td><td><span class="event-type">{{ event.event_type }}</span></td><td>{{ event.years|number }}</td><td>{{ event.fa_year|value }}</td><td>{{ event.source }}</td><td>{{ event.form_ref|value }} / {{ event.acquisition_type|value }}</td><td>{{ event.note|value }}</td></tr>
+{% else %}<tr><td colspan="9" class="empty">The contract ledger is empty.</td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}

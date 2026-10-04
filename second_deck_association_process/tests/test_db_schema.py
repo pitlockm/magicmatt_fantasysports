@@ -37,6 +37,8 @@ def test_initialize_database_is_idempotent(tmp_path: Path) -> None:
         "contract_events",
         "roster_snapshots",
         "pending_contracts",
+        "discord_bot_state",
+        "discord_processed_messages",
         "announcements",
         "season_config",
         "team_season_history",
@@ -61,6 +63,14 @@ def test_initialize_database_is_idempotent(tmp_path: Path) -> None:
         "bio_refreshed_at",
         "real_life_il",
     }.issubset(player_columns)
+    with open_database(database_path, read_only=True) as connection:
+        contract_columns = {
+            row[0]
+            for row in connection.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'contract_events'"
+            ).fetchall()
+        }
+    assert {"form_ref", "acquisition_type", "announced_at"}.issubset(contract_columns)
 
 
 def test_seed_teams_players_and_season_config(tmp_path: Path) -> None:

@@ -107,6 +107,21 @@ def test_build_site_renders_all_pages_cap_history_fallbacks_and_no_secrets(
     assert expected_pages.issubset({path.name for path in output.glob("*.html")})
     assert (output / "static" / "style.css").is_file()
     assert (output / "static" / "sort.js").is_file()
+    api_files = {
+        "cap_state.json", "players.json", "recent_adds.json", "draft_results.json"
+    }
+    api_dir = output / "api"
+    assert api_files.issubset({path.name for path in api_dir.glob("*.json")})
+    api_data = {
+        path.name: json.loads(path.read_text(encoding="utf-8"))
+        for path in api_dir.glob("*.json")
+    }
+    assert api_data["cap_state.json"]["teams"]["team-a"]["effective_cap"] == 81
+    assert api_data["cap_state.json"]["teams"]["team-a"]["committed_years"] == 5
+    assert api_data["cap_state.json"]["teams"]["team-a"]["remaining"] == 76
+    assert api_data["players.json"]["players"]["Nico Prospect"] == "p-minor"
+    assert api_data["recent_adds.json"] == []
+    assert api_data["draft_results.json"] == {}
 
     grid_html = (output / "index.html").read_text(encoding="utf-8")
     assert "3 + 2 dead" in grid_html

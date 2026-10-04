@@ -21,7 +21,7 @@ EVENT_TYPES = {
     "CAP_TRADE",
     "DEFAULTED_1YR",
 }
-EVENT_SOURCES = {"discord", "manual", "migration", "fantrax", "system"}
+EVENT_SOURCES = {"form", "manual", "migration", "fantrax", "system"}
 ROSTER_LEVELS = {"MLB", "minors"}
 
 
@@ -41,20 +41,29 @@ def append_event(
     note: str | None = None,
     approved_by: str | None = None,
     roster_level: str = "MLB",
+    form_ref: str | None = None,
+    acquisition_type: str | None = None,
+    announced_at: datetime | None = None,
     database_path: Path = DEFAULT_DATABASE_PATH,
 ) -> int:
     """Append a validated contract event and return its event ID."""
-    _validate_event(team_id, fantrax_id, event_type, years, fa_year, source, roster_level)
+    _validate_event(
+        team_id, fantrax_id, event_type, years, fa_year, source, roster_level,
+        form_ref=form_ref, acquisition_type=acquisition_type, announced_at=announced_at,
+    )
     event_time = ts or datetime.now(timezone.utc)
     if event_time.tzinfo is not None:
         event_time = event_time.astimezone(timezone.utc).replace(tzinfo=None)
+    submitted_at = announced_at
+    if submitted_at is not None and submitted_at.tzinfo is not None:
+        submitted_at = submitted_at.astimezone(timezone.utc).replace(tzinfo=None)
 
     with open_database(database_path) as connection:
         row = connection.execute(
             """INSERT INTO contract_events (
                    ts, team_id, fantrax_id, event_type, years, fa_year, source,
-                   note, approved_by, roster_level
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   note, approved_by, roster_level, form_ref, acquisition_type, announced_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                RETURNING event_id""",
             [
                 event_time,
@@ -67,6 +76,9 @@ def append_event(
                 note,
                 approved_by,
                 roster_level,
+                form_ref,
+                acquisition_type,
+                submitted_at,
             ],
         ).fetchone()
     _export_after_write(database_path)
@@ -192,6 +204,10 @@ def _validate_event(
     fa_year: int | None,
     source: str,
     roster_level: str,
+    *,
+    form_ref: str | None = None,
+    acquisition_type: str | None = None,
+    announced_at: datetime | None = None,
 ) -> None:
     if not team_id:
         raise ValueError("team_id must not be empty")
@@ -199,6 +215,12 @@ def _validate_event(
         raise ValueError(f"Unsupported contract event type: {event_type}")
     if source not in EVENT_SOURCES:
         raise ValueError(f"Unsupported event source: {source}")
+    if source == "form" and not form_ref:
+        raise ValueError("Form-sourced events require a submission ref")
+    if source == "form" and announced_at is None:
+        raise ValueError("Form-sourced events require the submission timestamp")
+    if acquisition_type is not None and acquisition_type not in {"drafted", "called_up", "waiver"}:
+        raise ValueError(f"Unsupported acquisition type: {acquisition_type}")
     if not math.isfinite(float(years)):
         raise ValueError("years must be finite")
     if event_type == "CAP_TRADE":

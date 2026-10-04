@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import logging
 import re
 from collections import defaultdict
@@ -15,6 +16,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from sda.db.connection import DEFAULT_DATABASE_PATH, open_database
+from sda.fantrax.normalize import DEFAULT_ALIAS_PATH, load_aliases, normalize_alias
 from sda.fantrax.snapshots import load_snapshot
 from sda.validation.engine import run_all
 
@@ -270,6 +272,7 @@ def build_site(
     snapshot_root: Path = DEFAULT_SNAPSHOT_ROOT,
     waiver_csv: Path | None = None,
     transactions_csv: Path | None = None,
+    alias_path: Path = DEFAULT_ALIAS_PATH,
 ) -> Path:
     """Render six reports and three supporting views to a static site directory."""
     validation = run_all(season, database_path)
@@ -329,8 +332,148 @@ def build_site(
     (output_dir / "static").mkdir(parents=True, exist_ok=True)
     for asset in ("style.css", "sort.js"):
         (output_dir / "static" / asset).write_bytes((STATIC_DIR / asset).read_bytes())
+    _write_forms_api(
+        output_dir / "api",
+        season,
+        data,
+        reports["grid"],
+        _load_optional_snapshot("draft_results", snapshot_root),
+        _load_recent_adds(Path(database_path), data["players"], data["teams"]),
+        alias_path,
+    )
     LOGGER.info("Built SDA static reports in %s", output_dir)
     return output_dir
+
+
+def _write_forms_api(
+    output_dir: Path,
+    season: int,
+    data: Mapping[str, Any],
+    grid: Mapping[str, Any],
+    draft_payload: Any,
+    recent_adds: Sequence[Mapping[str, Any]],
+    alias_path: Path,
+) -> None:
+    """Publish the Forms input feeds, writing valid empty values when source data is absent."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cap_by_team = {}
+    for team in grid.get("teams", []):
+        current_cell = next(
+            (cell for cell in team.get("cells", []) if int(cell["year"]) == season),
+            None,
+        )
+        if current_cell is None:
+            continue
+        cap_by_team[str(team["team_id"])] = {
+            "team_id": str(team["team_id"]),
+            "team_name": str(team["team_name"]),
+            "effective_cap": float(current_cell["effective_cap"]),
+            "committed_years": float(current_cell["committed"]),
+            "remaining": float(current_cell["remaining"]),
+            "season": season,
+        }
+
+    canonical_players = {
+        str(player["name"]): str(player_id)
+        for player_id, player in data.get("players", {}).items()
+        if player.get("name")
+    }
+    aliases = load_aliases(alias_path)
+    for name, player_id in canonical_players.items():
+        aliases.setdefault(normalize_alias(name), player_id)
+
+    draft_results = _normalize_draft_results(draft_payload, data.get("players", {}))
+    payloads = {
+        "cap_state.json": {"season": season, "teams": cap_by_team},
+        "players.json": {"players": canonical_players, "aliases": aliases},
+        "recent_adds.json": list(recent_adds),
+        "draft_results.json": draft_results,
+    }
+    for filename, payload in payloads.items():
+        (output_dir / filename).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+
+def _load_recent_adds(
+    database_path: Path,
+    players: Mapping[str, Mapping[str, Any]],
+    teams: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return MLB additions observed within the latest seven-day roster window."""
+    with open_database(database_path, read_only=True) as connection:
+        snapshot_dates = [
+            row[0]
+            for row in connection.execute(
+                "SELECT DISTINCT snapshot_date FROM roster_snapshots ORDER BY snapshot_date DESC LIMIT 2"
+            ).fetchall()
+        ]
+        if not snapshot_dates:
+            return []
+        latest_date = snapshot_dates[0]
+        if len(snapshot_dates) < 2:
+            return []
+        previous_date = snapshot_dates[1]
+        rows = connection.execute(
+            """SELECT team_id, fantrax_id, roster_level FROM roster_snapshots
+               WHERE snapshot_date = ? AND roster_level IN ('MLB', 'IL')""",
+            [latest_date],
+        ).fetchall()
+        previous = {
+            (str(team_id), str(player_id))
+            for team_id, player_id in connection.execute(
+                "SELECT team_id, fantrax_id FROM roster_snapshots WHERE snapshot_date = ?",
+                [previous_date],
+            ).fetchall()
+        }
+    team_names = {str(team["team_id"]): str(team["team_name"]) for team in teams}
+    result = []
+    for team_id, fantrax_id, level in rows:
+        key = (str(team_id), str(fantrax_id))
+        if key in previous or (date.today() - latest_date).days > 7:
+            continue
+        result.append(
+            {
+                "fantrax_id": key[1],
+                "name": players.get(key[1], {}).get("name") or key[1],
+                "team_id": key[0],
+                "team": team_names.get(key[0], key[0]),
+                "add_date": latest_date.isoformat(),
+                "roster_level": level,
+            }
+        )
+    return result
+
+
+def _normalize_draft_results(
+    payload: Any,
+    players: Mapping[str, Mapping[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Group Fantrax slow-draft picks by team ID for per-team prefilled Forms."""
+    if not isinstance(payload, Mapping):
+        return {}
+    picks = payload.get("draftPicks", payload.get("picks", []))
+    if not isinstance(picks, list):
+        return {}
+    result: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for pick in picks:
+        if not isinstance(pick, Mapping):
+            continue
+        team_id = _first(pick, "teamId", "teamID", "team_id")
+        if team_id is None:
+            continue
+        player_id = _first(pick, "playerId", "playerID", "player_id")
+        player = players.get(str(player_id), {}) if player_id is not None else {}
+        result[str(team_id)].append(
+            {
+                "round": _first(pick, "round", "roundNumber"),
+                "pick": _first(pick, "pick", "pickNumber", "overallPick"),
+                "fantrax_id": str(player_id) if player_id is not None else None,
+                "player_name": player.get("name") or _first(pick, "playerName", "name"),
+            }
+        )
+    return {team_id: picks_for_team for team_id, picks_for_team in sorted(result.items())}
 
 
 def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
@@ -374,7 +517,8 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
         event_rows = connection.execute(
             """SELECT e.event_id, e.ts, e.recorded_at, e.team_id, t.team_name,
                       e.fantrax_id, p.name, e.event_type, e.years, e.fa_year, e.source,
-                      e.note, e.approved_by, e.roster_level
+                      e.note, e.approved_by, e.roster_level, e.form_ref,
+                      e.acquisition_type, e.announced_at
                FROM contract_events e
                JOIN teams t ON t.team_id = e.team_id
                LEFT JOIN players p ON p.fantrax_id = e.fantrax_id
@@ -386,6 +530,7 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
                 "team_name": row[4], "fantrax_id": row[5], "player_name": row[6],
                 "event_type": row[7], "years": float(row[8]), "fa_year": row[9], "source": row[10],
                 "note": row[11], "approved_by": row[12], "roster_level": row[13],
+                "form_ref": row[14], "acquisition_type": row[15], "announced_at": row[16],
             }
             for row in event_rows
         ]

@@ -1,4 +1,5 @@
 .env
+.clasp.json
 data/*
 !data/snapshots/
 data/snapshots/*

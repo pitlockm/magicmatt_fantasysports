@@ -16,6 +16,8 @@ TABLE_NAMES = (
     "contract_events",
     "roster_snapshots",
     "pending_contracts",
+    "discord_bot_state",
+    "discord_processed_messages",
     "announcements",
     "season_config",
     "team_season_history",

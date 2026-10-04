@@ -62,16 +62,23 @@ CREATE TABLE IF NOT EXISTS contract_events (
     years DOUBLE NOT NULL CHECK (event_type = 'CAP_TRADE' OR years >= 0),
     fa_year INTEGER,
     source VARCHAR NOT NULL CHECK (
-        source IN ('discord', 'manual', 'migration', 'fantrax', 'system')
+        source IN ('form', 'manual', 'migration', 'fantrax', 'system')
     ),
     note VARCHAR,
     approved_by VARCHAR,
     roster_level VARCHAR NOT NULL DEFAULT 'MLB' CHECK (roster_level IN ('MLB', 'minors')),
+    form_ref VARCHAR,
+    acquisition_type VARCHAR CHECK (acquisition_type IN ('drafted', 'called_up', 'waiver')),
+    announced_at TIMESTAMP,
     CHECK (
         (event_type = 'CAP_TRADE' AND fantrax_id IS NULL AND fa_year IS NULL)
         OR (event_type <> 'CAP_TRADE' AND fantrax_id IS NOT NULL AND fa_year IS NOT NULL)
     )
 );
+
+ALTER TABLE contract_events ADD COLUMN IF NOT EXISTS form_ref VARCHAR;
+ALTER TABLE contract_events ADD COLUMN IF NOT EXISTS acquisition_type VARCHAR;
+ALTER TABLE contract_events ADD COLUMN IF NOT EXISTS announced_at TIMESTAMP;
 
 CREATE TABLE IF NOT EXISTS roster_snapshots (
     snapshot_date DATE NOT NULL,
@@ -85,7 +92,7 @@ CREATE TABLE IF NOT EXISTS pending_contracts (
     pending_id INTEGER PRIMARY KEY DEFAULT nextval('pending_contract_id_seq'),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     team_id VARCHAR NOT NULL,
-    fantrax_id VARCHAR NOT NULL,
+    fantrax_id VARCHAR,
     years DOUBLE NOT NULL,
     fa_year INTEGER,
     raw_message VARCHAR NOT NULL,
@@ -94,14 +101,44 @@ CREATE TABLE IF NOT EXISTS pending_contracts (
     )
 );
 
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS kind VARCHAR DEFAULT 'signing';
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS to_team_id VARCHAR;
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS discord_message_id VARCHAR;
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS approval_message_id VARCHAR;
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS form_ref VARCHAR;
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS acquisition_type VARCHAR;
+ALTER TABLE pending_contracts ADD COLUMN IF NOT EXISTS announced_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS discord_bot_state (
+    state_key VARCHAR PRIMARY KEY,
+    state_value VARCHAR NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS discord_processed_messages (
+    message_id VARCHAR PRIMARY KEY,
+    channel_id VARCHAR NOT NULL,
+    processed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    outcome VARCHAR NOT NULL
+);
+
+ALTER TABLE discord_processed_messages ADD COLUMN IF NOT EXISTS form_ref VARCHAR;
+
 CREATE TABLE IF NOT EXISTS announcements (
     announcement_id BIGINT PRIMARY KEY DEFAULT nextval('announcement_id_seq'),
     message_id VARCHAR UNIQUE,
     team_id VARCHAR NOT NULL,
     fantrax_id VARCHAR NOT NULL,
     announced_at TIMESTAMP NOT NULL,
-    raw_message VARCHAR NOT NULL
+    raw_message VARCHAR NOT NULL,
+    form_ref VARCHAR,
+    acquisition_type VARCHAR,
+    kind VARCHAR NOT NULL DEFAULT 'signing'
 );
+
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS form_ref VARCHAR;
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS acquisition_type VARCHAR;
+ALTER TABLE announcements ADD COLUMN IF NOT EXISTS kind VARCHAR DEFAULT 'signing';
 
 CREATE TABLE IF NOT EXISTS season_config (
     season INTEGER PRIMARY KEY,
@@ -166,6 +203,9 @@ WITH ranked_events AS (
         note,
         approved_by,
         roster_level,
+        form_ref,
+        acquisition_type,
+        announced_at,
         ROW_NUMBER() OVER (
             PARTITION BY team_id, fantrax_id
             ORDER BY ts DESC, recorded_at DESC, event_id DESC
@@ -175,7 +215,7 @@ WITH ranked_events AS (
 )
 SELECT
     event_id, ts, recorded_at, team_id, fantrax_id, event_type, years,
-    fa_year, source, note, approved_by, roster_level
+    fa_year, source, note, approved_by, roster_level, form_ref, acquisition_type, announced_at
 FROM ranked_events
 WHERE event_rank = 1
     AND event_type NOT IN ('DROPPED', 'EXPIRED')
@@ -187,6 +227,29 @@ def create_schema(connection: duckdb.DuckDBPyConnection) -> None:
     """Create all SDA tables and views without altering existing rows."""
     _drop_empty_legacy_league_history(connection)
     connection.execute(SCHEMA_SQL)
+    _ensure_pending_contract_identity(connection)
+    _ensure_form_reference_indexes(connection)
+
+
+def _ensure_pending_contract_identity(connection: duckdb.DuckDBPyConnection) -> None:
+    """Allow team-level trade proposals and enforce unique Discord queue identity."""
+    columns = connection.execute("PRAGMA table_info('pending_contracts')").fetchall()
+    fantrax_id = next((row for row in columns if row[1] == "fantrax_id"), None)
+    if fantrax_id is not None and fantrax_id[3]:
+        connection.execute("ALTER TABLE pending_contracts ALTER COLUMN fantrax_id DROP NOT NULL")
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS pending_contract_message_idx "
+        "ON pending_contracts (discord_message_id)"
+    )
+
+
+def _ensure_form_reference_indexes(connection: duckdb.DuckDBPyConnection) -> None:
+    """Make relay UUIDs unique at each durable intake boundary."""
+    for table_name in ("pending_contracts", "discord_processed_messages", "announcements"):
+        connection.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {table_name}_form_ref_idx "
+            f"ON {table_name} (form_ref)"
+        )
 
 
 def _drop_empty_legacy_league_history(connection: duckdb.DuckDBPyConnection) -> None:

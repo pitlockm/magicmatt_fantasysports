@@ -94,7 +94,7 @@ The bot runs on the commissioner's Mac via `launchd` (auto-start on boot) — **
 - Dedupe test: same `ref` twice, and same deal within 24h with different `ref`, each processed exactly once.
 - End-to-end dry run (signing): a relayed signing that would break the cap → confirmation card shows the cap rule failing → **nothing written anywhere** (no ledger event, no queue row, no channel post). `--dry-run` is strictly read-only.
 - Queue-without-ledger test (NOT dry-run): process a valid relayed signing through queueing → exactly one `pending_contracts` row exists, ledger unchanged, confirmation card posted.
-- End-to-end dry run (cap trade): relayed `📝 CAP TRADE: <team_a> sends 2.5 years to <team_b>` → card shows both teams' resulting effective cap/remaining → approval writes exactly two `CAP_TRADE` events (`-2.5` sender, `+2.5` receiver).
+- End-to-end approval test (cap trade — NOT a dry run): relayed `📝 CAP TRADE: <team_a> sends 2.5 years to <team_b>` → card shows both teams' resulting effective cap/remaining → nothing written until approval → on approval exactly two `CAP_TRADE` events (`-2.5` sender, `+2.5` receiver).
 - Restart test: kill mid-queue, restart, no duplicate processing; watermark intact.
 - Token appears nowhere in logs, the DB, or the repo (test asserts this).
 - README documents: the form-relay input model, the commissioner's prerequisites above, the `launchd` plist, and the "channel is bot-written only" rule for managers.

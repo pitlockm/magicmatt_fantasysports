@@ -18,7 +18,7 @@ Local CSV exports live at:
 
 **One CSV per team tab is required**: Boe, Maloun, Hoffman, Pecora, C. Pelton, W. Pelton, Pitlock, Riggen, A. Rolain, M. Rolain. Export via Google Sheets: File → Download → Comma-separated values, switching tabs along the bottom. If any tab's CSV is missing, the script must fail loudly listing exactly which are absent — never silently migrate a partial league.
 
-**Deliberately out of scope (built from scratch, not migrated):** the **Salary Cap Tracking**, **Estimated Free Agent Class**, and **League History** tabs. Cap tracking restarts at 78 years per team per season with future cap trades announced in Discord (Prompt 6); the free-agent projection is derived from `fa_year` (Prompt 5, Report 2); league history accumulates from the Fantrax API going forward (Prompt 7). Do not read those tabs at all.
+**Deliberately out of scope (built from scratch, not migrated):** the **Salary Cap Tracking**, **Estimated Free Agent Class**, and **League History** tabs. Cap tracking restarts at 78 years per team per season with future cap trades submitted via the Google Form (Prompt 8); the free-agent projection is derived from `fa_year` (Prompt 5, Report 2); league history accumulates from the Fantrax API going forward (Prompt 7). Do not read those tabs at all.
 
 ## Column mapping (team tabs)
 
@@ -40,7 +40,7 @@ Reconstruction logic per player row (non-minors rows only): one `SIGNED` event (
 
 ## Cap trades
 
-Do NOT import historical cap trades — cap tracking starts fresh at 78 contract-years per team per season, and future cap trades are announced in Discord and recorded by the bot (Prompt 6). The ledger begins with zero `CAP_TRADE` events.
+Do NOT import historical cap trades — cap tracking starts fresh at 78 contract-years per team per season, and future cap trades are submitted via the Google Form (Prompt 8) and recorded by the commishbot (Prompt 6). The ledger begins with zero `CAP_TRADE` events.
 
 ## League history
 

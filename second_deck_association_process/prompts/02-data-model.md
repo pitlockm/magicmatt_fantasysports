@@ -44,10 +44,15 @@ CREATE TABLE contract_events (
   event_type  VARCHAR NOT NULL,      -- SIGNED | EXTENDED | DROPPED | EXPIRED | CALLED_UP | CAP_TRADE | DEFAULTED_1YR
   years       DOUBLE NOT NULL,       -- contract years granted (for DROPPED: penalty years assessed)
   fa_year     INTEGER,               -- first year the player becomes a free agent (NULL for CAP_TRADE)
-  source      VARCHAR NOT NULL,      -- discord | manual | migration | fantrax | system
+  source      VARCHAR NOT NULL,      -- form | manual | migration | fantrax | system
+                                 -- ('form' = via the Google Form intake (Prompt 8); 'discord' is retired)
   note        VARCHAR,
   approved_by VARCHAR,               -- commissioner who approved (NULL for system/migration)
-  roster_level VARCHAR NOT NULL DEFAULT 'MLB'  -- MLB | minors
+  roster_level VARCHAR NOT NULL DEFAULT 'MLB',  -- MLB | minors
+  -- Form-intake metadata (NULL for non-form sources; added 2026-10-04):
+  form_ref         VARCHAR,           -- submission UUID from the relay (dedupe key)
+  acquisition_type VARCHAR,           -- drafted | called_up | waiver (drives V2 year bounds)
+  announced_at     TIMESTAMP          -- form submit time; the one-day rule keys off this
 );
 
 -- Nightly Fantrax roster states (for diffing: detects call-ups, drops, adds)
@@ -59,7 +64,7 @@ CREATE TABLE roster_snapshots (
   PRIMARY KEY (snapshot_date, team_id, fantrax_id)
 );
 
--- Discord bot's approval queue
+-- Commishbot's approval queue (Google Form submissions relayed via Discord)
 CREATE TABLE pending_contracts (
   pending_id  INTEGER PRIMARY KEY,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

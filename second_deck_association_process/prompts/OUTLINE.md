@@ -1,7 +1,7 @@
 # SDA Tracking System — Claude Code Prompt Outline
 
 **League:** Second Deck Association (10-team dynasty fantasy baseball, Fantrax)
-**Goal:** Replace the editable Google Sheet contract tracker with a Python/SQLite pipeline producing read-only HTML reports, plus two Discord bots: a multi-year signings watcher and a salary-cap-trade watcher (each with its own announcements channel).
+**Goal:** Replace the editable Google Sheet contract tracker with a Python/SQLite pipeline producing read-only HTML reports, plus one Discord commishbot and a Google Forms input system (Apps Script) that is the **sole intake** for long-term signings and cap trades.
 **Workflow:** These are broad-stroke specs. Each section expands into one self-contained prompt for Claude Code. The assistant QCs generated code afterward.
 
 ## Prompt 0 — Project scaffolding & shared conventions
@@ -73,17 +73,15 @@ Static Jinja2 pages on the league website (see Prompt 7 / website notes). Mobile
 - Distribution: Discord bot posts the report link after each regeneration (link unfurl); archive copy to Google Drive.
 - Acceptance: full site builds from a fixture DB.
 
-## Prompt 6 — Discord bot (propose → validate → approve)
+## Prompt 6 — Discord commishbot (form relay → validate → approve)
 
-- `discord.py`, long-running on the commissioner's laptop (launchd service for auto-start); token in `.env`.
-- Watches the announcements channel (ID `1496593362135027963`, in config as `discord_announcements_channel_id`); parses signings. League adopts a standard format — `📝 SIGNING: <player> — <N> years — <team>` — with free-text fallback parsing.
-- **Pre-recording validation** against the constitution: contract bounds by acquisition type, cap room including IL relief and cap trades, roster limits. Nothing is recorded until it validates.
-- Posts a confirmation card (parsed details + rule pass/fail) and queues in `pending_contracts`.
-- Approval: commissioner ✅ reaction or `/contract approve`. On approval → append ledger event → regenerate HTML → post the link.
-- **One-day signing rule:** the bot matches each new Fantrax MLB addition against Discord announcements within a 1-day window. No announcement in time → auto-append the 1-year default (ledger event, `source=system`) and post a notice in the channel. The announcement format's timestamp is the source of truth for the window.
-- **Startup catch-up:** on launch, scan channel history since the last processed message ID (laptop sleep is safe).
-- v1 may ship the slash-command path (`/contract propose`) before free-text parsing.
-- Acceptance: dry-run mode that validates without writing anything.
+- `discord.py`, long-running on the commissioner's laptop (one `launchd` plist, auto-start); token in `.env` as `DISCORD_BOT_TOKEN`; Message Content Intent enabled.
+- **Input model (decided 2026-10-04):** the Google Form system (Prompt 8) is the sole input. Its Apps Script relays each accepted submission to the announcements channel (ID `1496593362135027963`) via Discord webhook, in strict formats (`📝 SIGNING: <player> — <N> years — <team>` / `📝 CAP TRADE: <from> sends <N> years to <to>`, each with a metadata line carrying `submitted` timestamp and `ref` UUID). The channel is bot-written only; the bot strictly parses relay formats and ignores everything else. No free-text parsing, no second bot/channel/token.
+- Watches the channel → dedupes by `ref` UUID (plus same-deal-in-24h guard) → validates with the Prompt-4 rules (signings: bounds by acquisition type, cap room, roster limits, re-sign tripwire; cap trades: known teams, positive N) → posts a confirmation card (parsed details + per-rule pass/fail + resulting effective cap/remaining) → queues in `pending_contracts`.
+- Approval: commissioner ✅ reaction or `/approve <id>` (reject: ❌ / `/reject <id>`). Signing approval → one `SIGNED` event (`source='form'`); cap-trade approval → two `CAP_TRADE` events (`-N` sender / `+N` receiver). Then regenerate HTML and post the link + processed notice.
+- **One-day signing rule:** matches each new Fantrax MLB addition against relayed submissions by `submitted` timestamp; no form submission within 1 day → auto-append 1-year default (`source='system'`) + channel notice.
+- **Startup catch-up:** scan channel history since the last processed message ID (laptop sleep is safe). Single-writer lock discipline; `--dry-run` mode; token appears nowhere in logs/DB/repo (tested).
+- Acceptance: strict parser tests (malformed/hand-typed ignored), dedupe tests, dry-run end-to-ends for signing and cap trade, restart test, README documents the form-relay model and the one-plist setup.
 
 ## Prompt 7 — Nightly pipeline, operations & website
 
@@ -92,6 +90,16 @@ Static Jinja2 pages on the league website (see Prompt 7 / website notes). Mobile
 - **Website (GitHub Pages):** free, no server. Setup: repo Settings → Pages → deploy from branch (`main`, `/docs` folder or `gh-pages` branch); the pipeline's push already regenerates the site — each push redeploys automatically. Address `https://pitlockm.github.io/magicmatt_fantasysports/` (or a custom domain via `CNAME` + DNS, optional). The repo is public so the site is public — fine for a fantasy league; the build must strip secrets (no tokens in HTML). Effort: ~15 minutes once; the pipeline does the rest forever. Alternatives (Cloudflare Pages, Netlify) are also free but unnecessary for v1.
 - Docs: README (setup, `.env`, first backfill), OPERATIONS.md (common tasks), LEAGUE_CALENDAR.md.
 - Acceptance: end-to-end dry run on fixture data.
+- **Forms data:** the pipeline also publishes `site/api/cap_state.json`, `players.json`, `recent_adds.json`, `draft_results.json` for the Prompt-8 Google Forms system (valid JSON, present even when empty).
+
+## Prompt 8 — Google Forms input system (Apps Script)
+
+- **Sole input process** (decided 2026-10-04): managers use Google Forms for long-term signings and cap trades — no hand-typed Discord announcements. Apps Script project lives in the repo at `sda/forms/`, deployed with `clasp` from the commissioner's Google account.
+- **Three forms** built idempotently from code: signing form (team dropdown, player name, years with native 1–7 validation, acquisition type drafted/called_up/waiver, notes), cap-trade form (from/to teams, decimal years), and post-draft team-specific pre-filled forms (one years-input per pick, links generated from `draft_results.json`).
+- **Validation:** native Forms response validation for bounds; Apps Script `onFormSubmit` validates name vs `players.json` (exact + alias map), year bounds by acquisition type, and cap room vs `cap_state.json` (fetched with 1h cache; fail-closed on fetch errors). Rejections are marked on the response row with a reason, not relayed, and the respondent is emailed. Webhook URL lives in Script Properties, never the repo.
+- **Relay:** accepted submissions POST to the announcements channel webhook in Prompt 6's strict formats (with `submitted` timestamp + `ref` UUID).
+- **Phase 2 (deferred):** `refreshRecentAdds()` time-triggered dropdown from `recent_adds.json` — documented as a stub only; see `forms-deferred-enhancements.md`.
+- Acceptance: builder idempotency, validation unit tests (name/alias/bounds/cap/fail-closed), relay-format tests against Prompt 6's parser, dry-run flag, webhook URL hygiene test, cold-followable deploy checklist in the README.
 
 ## Appendix — Open questions & gaps (from league document review)
 

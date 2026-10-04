@@ -63,7 +63,7 @@ doesn't match these formats** — including hand-typed manager messages.
    - *Cap trades:* both teams resolve to known `team_id`s; N positive and finite. (No cap-room check on the *sending* team — trading away space is always legal.)
 4. **Queue.** Insert into `pending_contracts` (with a `kind` marker: `signing` / `cap_trade`) along with the raw relay text and the `submitted` timestamp, and post a **confirmation card** in the channel: parsed details + pass/fail per rule + the resulting effective cap / remaining space for the affected team(s).
 5. **Approve.** The commissioner approves with ✅ or `/approve <id>`, rejects with ❌ or `/reject <id>`.
-   - Signing approval → append one `SIGNED` event (`source='form'`, `approved_by` = commissioner).
+   - Signing approval → append one ledger event (`source='form'`, `approved_by` = commissioner, carrying `form_ref`, `acquisition_type`, `announced_at` = relay `submitted`): `CALLED_UP` when the relay `type` is `called_up` (a minor leaguer's first MLB deal — Prompt 2), otherwise `SIGNED` (`drafted` / `waiver`).
    - Cap-trade approval → append **two** `CAP_TRADE` events: `-N` on the sender, `+N` on the receiver (`source='form'`, `approved_by` = commissioner).
    - Then trigger the report rebuild (call into `sda.reports.build`) and post the updated report link + a "processed" notice in the channel.
 6. **One-day signing rule.** A lightweight loop (or `/check` command) matches recent Fantrax MLB adds against relayed signings by `submitted` timestamp: no form submission within 1 day of the add → append `DEFAULTED_1YR` (`source='system'`) and post a notice in the channel.
@@ -92,7 +92,8 @@ The bot runs on the commissioner's Mac via `launchd` (auto-start on boot) — **
 
 - Parser tests: exact relay formats for signing (all three acquisition types) and cap trade (including a fractional-years case, e.g. 2.5); malformed messages and hand-typed variants must NOT parse / must be ignored.
 - Dedupe test: same `ref` twice, and same deal within 24h with different `ref`, each processed exactly once.
-- End-to-end dry run (signing): a relayed signing that would break the cap → confirmation card shows the cap rule failing → nothing written beyond the queued row.
+- End-to-end dry run (signing): a relayed signing that would break the cap → confirmation card shows the cap rule failing → **nothing written anywhere** (no ledger event, no queue row, no channel post). `--dry-run` is strictly read-only.
+- Queue-without-ledger test (NOT dry-run): process a valid relayed signing through queueing → exactly one `pending_contracts` row exists, ledger unchanged, confirmation card posted.
 - End-to-end dry run (cap trade): relayed `📝 CAP TRADE: <team_a> sends 2.5 years to <team_b>` → card shows both teams' resulting effective cap/remaining → approval writes exactly two `CAP_TRADE` events (`-2.5` sender, `+2.5` receiver).
 - Restart test: kill mid-queue, restart, no duplicate processing; watermark intact.
 - Token appears nowhere in logs, the DB, or the repo (test asserts this).

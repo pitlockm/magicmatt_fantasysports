@@ -8,7 +8,7 @@
 
 - Repo layout: `sda/` package with `sda/fantrax/`, `sda/db/`, `sda/validation/`, `sda/reports/`, `sda/discord/`, `sda/pipeline/`; `config/` for YAML; `tests/`; `data/` for local runtime files (gitignored).
 - Python 3.11+; dependencies: `requests`, `jinja2`, `discord.py`, `pyyaml`, `pytest`, `duckdb` (DuckDB is the storage engine — already in use in the repo).
-- Config: `config/season.yaml` holds `league_id` (4fyzhujxmk7scnaf), season year, `freeze_date`, `trade_deadline`, draft dates, `min_mlb_roster`, both Discord channel IDs. Secrets (Fantrax `userSecretId`, the two Discord bot tokens) live in `.env`, never committed.
+- Config: `config/season.yaml` holds `league_id` (4fyzhujxmk7scnaf), season year, `freeze_date`, `trade_deadline`, draft dates, `min_mlb_roster`, the Discord channel ID. Secrets (Fantrax `userSecretId`, the Discord bot token) live in `.env`, never committed.
 - **2027 recommended values (documented):** `freeze_date: 2027-04-25` — rule is `freeze_date = opening_day + 30 days` (Opening Day 2027 is March 25); must always precede the MLB rookie draft (mid-July, All-Star week). **Caveat:** the MLB CBA expires 2026-12-01 and a lockout is widely expected — if Opening Day moves, re-anchor `freeze_date` and the draft window, don't hardcode. `trade_deadline:` TODO — pull Fantrax's default when the 2027 league season rolls over in Fantrax (2026's was Aug 12; unconfirmed whether that's the default). Slow draft window: **2027-03-13 → 2027-03-18** (see below).
 - Conventions: type hints, docstrings, pytest for every validation rule, structured logging.
 - Acceptance: `pytest` passes; `python -m sda.pipeline --help` works.

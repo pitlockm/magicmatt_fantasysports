@@ -1,14 +1,14 @@
 # Prompt Implementation Handoff
 
 **Status date:** 2026-10-06
-**Branch:** `main`, based on `origin/main` at `9858224` before the migration updates in this handoff
-**Implementation state:** Migration matching/rule updates, migration tests, and the manual-resolution worksheet are committed on `main`. The production migration remains blocked; no contract events have been committed, and no live Discord connection, Apps Script deployment, or pipeline Git publish has been run.
+**Branch:** `main` at `9c3084e`, synchronized with `origin/main`; migration/config/tests and handoff updates are local and uncommitted
+**Implementation state:** The migration dry-run is clean with official multi-year minors contracts preserved and counted toward cap. The daily V14 promotion validation is documented but not yet implemented. No production contract events, live Discord connection, Apps Script deployment, or pipeline Git publish has been run.
 
 ## Summary
 
 Implemented the current Forms → Discord webhook → commishbot intake model and its supporting report/pipeline data contract. Google Forms are the only manager input for long-term signings and cap trades. The Apps Script relay emits strict two-line messages with a UUID `ref`, acquisition type where applicable, and UTC submission timestamp. The commishbot parses those relays, validates proposals, queues them for commissioner approval, and records approved events with Form provenance.
 
-The one-time contract migration has been extended with conservative fuzzy player matching scoped first to the current Fantrax roster of the mapped owner/team, before a global fuzzy fallback. It also supports the commissioner-confirmed 2026 default drop year, derives FA year from year added plus contract duration, treats blank Move Type as waiver only for 1–3 year contracts, and flags active unrostered contracts over three years. A manual-resolution worksheet is available at `data/manual_contract_resolution.md`.
+The one-time contract migration has conservative fuzzy player matching scoped first to the Fantrax roster of the mapped owner/team, then a global fuzzy fallback. It supports the commissioner-confirmed 2026 drop-year default, derives FA year from year added plus contract duration, treats blank Move Type as waiver only for 1–3 year contracts, and flags active unrostered contracts over three years. Per-row commissioner decisions are in `config/manual_migration_resolutions.json`; the review record is `data/manual_contract_resolution.md`.
 
 ## Implementation Changes
 
@@ -48,10 +48,16 @@ Added `sda/forms/` with:
 
 ## Verification
 
-- Python suite: **92 passed** after the migration matching updates.
-- Latest migration dry-run (with local team/alias mappings and the external replacement CSVs): **534/554** player rows matched; **24 exceptions**; **0 cap errors**; **423 planned events**; commit gate remains blocked. Exceptions include unresolved player aliases, two invalid contract-year rows, one blank Move Type over three years, and one active contract over three years absent from the current roster.
-- The review worksheet records the 24 exception rows and the information needed to resolve each. Leodalis De Vries is noted as dropped; this note has not yet been incorporated into a clean reconciliation.
-- The dry-run did not commit events. No production contract-event migration has been performed.
+- Python suite: **103 passed** after official multi-year minors support.
+- Latest dry-run after the placeholder-minors ruling: **554/554** player rows matched; **0 exceptions**; **0 cap errors**; **179 planned events**; `can_commit=True`.
+- Commissioner resolutions are applied for the 24 reviewed rows: owner/ID overrides, five dropped exclusions, minor-league no-contract treatment, missing-year policy, and removal of the stale O'Hearn duplicate. Jose Ramirez is explicitly mapped to the 3B/CLE player ID `01ub6`, overriding an older incorrect alias.
+- Migration eligibility is strictly `contract_years > 1`; rows at one year or less are excluded whether marked dropped or active. Missing non-minor contract years default to a 2026 one-year deal (FA 2027), so those rows are also excluded. When a player appears on multiple sheets, the current Fantrax roster team is authoritative. This resolves the prior duplicate groups: retain Framber Valdez's two-year Pecora row and omit its one-year duplicate; omit the one-year rows for Gore, Nola, Brooks Lee, and Nick Martinez. O'Hearn resolves to Hoffman; Lugo/Ray are one-year rows and are outside this migration scope.
+- Commissioner policy is now: one-year contracts count toward future cap calculations/reporting, but prior-season one-year deals are not migrated; the next seven seasons start at 78 base years per team with no prior-season cap-trade carryover; uncontracted minors have no contract/cap entry, while an official active multi-year contract remains cap-bearing when a player is demoted to minors.
+- The commissioner reviewed the five candidate minor deals (Jackson Jobe, Hagen Smith, Cam Caminiti, Gage Wood, Noelvi Marte) and confirmed all tracker terms are placeholders, not official contracts. These five rows now have explicit no-contract overrides; the current migration plans zero minors contract events. If a future review confirms an official multi-year contract for a demoted minor, it is preserved and counted against cap. The commit path refreshes the schema so legacy `current_contracts` views include official minors deals.
+- No new Fantrax pull is needed for this migration: the commissioner confirmed the saved end-of-season snapshot is the intended roster source.
+- The event-by-event migration review file is `data/migration_event_preview_2026-10-06.csv` (179 planned events). No source CSVs or production ledger events have been changed.
+- **Daily promotion validation:** `roster_snapshots` already stores dated MLB/minors roster levels, and the pipeline computes roster-level changes. The new V14 check (minors → MLB/IL with no active official contract) is not implemented yet. The prompt now specifies a configurable annual per-team unsigned-promotion allowance, default 0; allowed moves consume quota, while V12 still applies its one-year default after the normal window. Daily snapshots can detect and report moves but cannot prevent Fantrax from making them; a missed snapshot can hide transitions during the gap.
+- The production ledger still contains **0 events**; no migration commit has been performed.
 - Apps Script pure validation and exact relay-format tests passed under macOS JavaScriptCore (`osascript -l JavaScript`).
 - `python -m sda.discord_bot.commish --help` and `python -m sda.pipeline --help` work.
 - `git diff --check` passed at the last verification.
@@ -67,4 +73,4 @@ Added `sda/forms/` with:
 
 ## Worktree Notes
 
-Migration code and tests are tracked source changes. `data/manual_contract_resolution.md` is normally excluded by `data/*` and must be explicitly included for this handoff. Player aliases, the team map, database, and generated snapshot CSVs are local data under the same ignore rule and are not part of the source publication. Unrelated `.DS_Store` and `__pycache__` artifacts remain untracked and are not included. The migration is not ready to write to the production ledger until all exceptions are resolved and a fresh dry-run opens the gate.
+The prompt outline and handoff record the confirmed cap/minors decisions and V14 design. Migration code, tests, config, and the readable manual worksheet remain local changes; V14 validation and daily scheduling/alert verification remain outstanding. The saved season-end roster snapshot was intentionally reused without a refresh. Player aliases, team map, database, and generated snapshots are local data. Unrelated `.DS_Store` and `__pycache__` artifacts remain untracked. No production migration has been committed.

@@ -218,8 +218,7 @@ SELECT
     fa_year, source, note, approved_by, roster_level, form_ref, acquisition_type, announced_at
 FROM ranked_events
 WHERE event_rank = 1
-    AND event_type NOT IN ('DROPPED', 'EXPIRED')
-    AND roster_level <> 'minors';
+    AND event_type NOT IN ('DROPPED', 'EXPIRED');
 """
 
 

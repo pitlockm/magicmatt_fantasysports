@@ -1,0 +1,225 @@
+{
+  "rows": {
+    "Boe:22": {
+      "action": "exclude",
+      "reason": "Commissioner-confirmed Bobby Abreu was dropped; do not associate the row with the unrelated Abreu, Albert ID."
+    },
+    "Boe:40": {
+      "action": "exclude",
+      "reason": "Commissioner-confirmed Jose Fernandez was dropped; no Fantrax ID is needed."
+    },
+    "Boe:43": {
+      "player_id": "067yc",
+      "owner_team_tab": "Boe",
+      "roster_level": "minors",
+      "note": "Fantrax roster confirms De Vries, Leo is on Boe's minors roster; prior dropped note was incorrect."
+    },
+    "Maloun:42": {
+      "player_id": "05rcw",
+      "owner_team_tab": "Maloun",
+      "roster_level": "minors",
+      "note": "Use rostered Bernal, Leo; Jonatan Bernal is unrostered."
+    },
+    "Maloun:45": {
+      "player_id": "03sef",
+      "action": "exclude",
+      "reason": "Duplicate 2026 one-year Seth Lugo row; retain M. Rolain row 60 routed to current owner Pecora per the commissioner resolution."
+    },
+    "Hoffman:12": {
+      "player_id": "03dgq",
+      "owner_team_tab": "Hoffman",
+      "roster_level": "IL",
+      "note": "Use current roster owner per commissioner ruling."
+    },
+    "Hoffman:21": {
+      "player_id": "01ub6",
+      "owner_team_tab": "Hoffman",
+      "roster_level": "MLB",
+      "note": "3B sheet position identifies Ramirez, Jose (CLE); do not use the RP Harold Ramirez alias."
+    },
+    "Hoffman:43": {
+      "player_id": "05y62",
+      "owner_team_tab": "Hoffman",
+      "roster_level": "MLB",
+      "note": "Commissioner-confirmed Brian Woo is on Dinger Dave's Demo Squad."
+    },
+    "Hoffman:50": {
+      "player_id": "03pjf",
+      "action": "exclude",
+      "reason": "Commissioner-confirmed dropped 2026-10-06."
+    },
+    "Pecora:21": {
+      "player_id": "03dgq",
+      "action": "exclude",
+      "reason": "Stale duplicate of Hoffman row 12; omit from migration input."
+    },
+    "C. Pelton:67": {
+      "player_id": "05h2u",
+      "action": "exclude",
+      "reason": "Commissioner-confirmed dropped 2026-10-06; use the SP record, not the duplicate 1B record."
+    },
+    "C. Pelton:79": {
+      "player_id": "064zm",
+      "owner_team_tab": "C. Pelton",
+      "roster_level": "minors",
+      "contract_years": 1,
+      "year_added": 2026,
+      "note": "Sheet implies 2026 signing and 2027 FA; Fantrax MINORS status means no ledger contract or cap hit."
+    },
+    "C. Pelton:80": {
+      "player_id": "05yj0",
+      "action": "exclude",
+      "reason": "Commissioner-confirmed dropped 2026-10-06."
+    },
+    "W. Pelton:14": {
+      "player_id": "04pr1",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "MLB",
+      "note": "Commissioner-confirmed Stephen Kwan is on Mighty Melon Heads."
+    },
+    "W. Pelton:18": {
+      "player_id": "04nqx",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "MLB"
+    },
+    "W. Pelton:29": {
+      "player_id": "041w4",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "MLB"
+    },
+    "W. Pelton:30": {
+      "player_id": "04tlv",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "MLB",
+      "note": "Commissioner-confirmed Brian Abreu is on Mighty Melon Heads."
+    },
+    "W. Pelton:35": {
+      "player_id": "041rd",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "MLB",
+      "note": "Commissioner-confirmed Corbin Burnes is on Mighty Melon Heads."
+    },
+    "W. Pelton:39": {
+      "player_id": "05gdz",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "minors"
+    },
+    "W. Pelton:42": {
+      "player_id": "0406v",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "MLB"
+    },
+    "W. Pelton:43": {
+      "player_id": "06rkk",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "minors"
+    },
+    "W. Pelton:44": {
+      "player_id": "05rik",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "minors"
+    },
+    "W. Pelton:45": {
+      "player_id": "05r3i",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "minors"
+    },
+    "W. Pelton:53": {
+      "player_id": "06k7t",
+      "owner_team_tab": "W. Pelton",
+      "roster_level": "minors"
+    },
+    "Pitlock:59": {
+      "player_id": "05rb0",
+      "owner_team_tab": "Pitlock",
+      "roster_level": "minors",
+      "contract_status": "none",
+      "note": "Commissioner-confirmed Fantrax-minors player with placeholder terms; no official multi-year deal to migrate."
+    },
+    "Pitlock:60": {
+      "player_id": "05zd4",
+      "owner_team_tab": "Pitlock",
+      "roster_level": "minors",
+      "contract_status": "none",
+      "note": "Commissioner-confirmed Fantrax-minors player with placeholder terms; no official multi-year deal to migrate."
+    },
+    "Pitlock:61": {
+      "player_id": "06apx",
+      "owner_team_tab": "Pitlock",
+      "roster_level": "minors",
+      "contract_status": "none",
+      "note": "Drafted minor-league player; contract years are N/A and no contract event is created."
+    },
+    "Pitlock:62": {
+      "player_id": "062e0",
+      "owner_team_tab": "Pitlock",
+      "roster_level": "minors",
+      "contract_status": "none",
+      "note": "Commissioner-confirmed Fantrax-minors player with placeholder terms; no official multi-year deal to migrate."
+    },
+    "Pitlock:63": {
+      "player_id": "06ujt",
+      "owner_team_tab": "Pitlock",
+      "roster_level": "minors",
+      "contract_status": "none",
+      "note": "Commissioner-confirmed Fantrax-minors player with placeholder terms; no official multi-year deal to migrate."
+    },
+    "Riggen:10": {
+      "player_id": "03wha",
+      "owner_team_tab": "Riggen",
+      "note": "Commissioner-confirmed Ronald Acuna Junior is on the 10 Day IL team."
+    },
+    "Riggen:12": {
+      "player_id": "0512v",
+      "owner_team_tab": "Riggen",
+      "note": "Commissioner-confirmed Michael Harris II is on the 10 Day IL team."
+    },
+    "Riggen:15": {
+      "player_id": "04qnd",
+      "owner_team_tab": "Riggen",
+      "roster_level": "minors",
+      "contract_status": "none",
+      "note": "Commissioner-confirmed Fantrax-minors player; the two-year tracker term is a placeholder, not an official contract."
+    },
+    "Riggen:30": {
+      "player_id": "05y9r",
+      "action": "exclude",
+      "reason": "Commissioner-confirmed dropped 2026-10-06."
+    },
+    "Riggen:33": {
+      "player_id": "03qln",
+      "owner_team_tab": "Riggen",
+      "roster_level": "MLB"
+    },
+    "Riggen:46": {
+      "player_id": "05jp4",
+      "action": "exclude",
+      "reason": "Commissioner-confirmed dropped 2026-10-06."
+    },
+    "A. Rolain:46": {
+      "player_id": "04eor",
+      "owner_team_tab": "A. Rolain",
+      "roster_level": "MLB",
+      "note": "Use rostered CLE RP, not the unrostered NYY SP with the same name."
+    },
+    "A. Rolain:48": {
+      "player_id": "04ej3",
+      "owner_team_tab": "A. Rolain",
+      "roster_level": "minors"
+    },
+    "M. Rolain:60": {
+      "player_id": "03sef",
+      "owner_team_tab": "Pecora",
+      "roster_level": "MLB",
+      "dropped": false,
+      "note": "Current roster owner is Pecora; trade history and any retained salary remain unverified."
+    },
+    "M. Rolain:64": {
+      "player_id": "025j1",
+      "owner_team_tab": "Pecora",
+      "roster_level": "MLB",
+      "dropped": false,
+      "note": "Current roster owner is Pecora; trade history and any retained salary remain unverified."
+    }
+  }
+}

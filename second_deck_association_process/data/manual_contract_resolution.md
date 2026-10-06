@@ -1,1 +1,259 @@
-IyBNYW51YWwgY29udHJhY3QgcmVzb2x1dGlvbiByZXZpZXcKCkZpbGxlZCAyMDI2LTEwLTA2IGFnYWluc3QgdGhlIGxpdmUgRmFudHJheCBBUEkgKGBnZXRQbGF5ZXJJZHNgICsgYGdldFRlYW1Sb3N0ZXJzYCkgcGVyIHRoZQpjb21taXNzaW9uZXIncyBydWxpbmdzLiBBbGwgMjQgcm93cyByZXNvbHZlZDogMTkgbWF0Y2hlZCB0byByb3N0ZXJlZCBwbGF5ZXJzLCA1IGNvbmZpcm1lZApkcm9wcGVkLiBSZW1haW5pbmc6IHJlLXJ1biB0aGUgbWlncmF0aW9uIGRyeS1ydW4gYW5kIGNvbmZpcm0gemVybyBleGNlcHRpb25zLgoKIyMgQ29tbWlzc2lvbmVyIHJ1bGluZ3MgKDIwMjYtMTAtMDYpCgoxLiAqKlRoZSBTREEgKEZhbnRyYXgpIHJvc3RlciBpcyB0aGUgdWx0aW1hdGUgc291cmNlIG9mIHRydXRoLioqIElmIGEgcGxheWVyIGlzIG9uIGEgcm9zdGVyLAogICBhc3NpZ24gaGltIHRvIHRoYXQgdGVhbS4KMi4gKipQbGF5ZXIgb24gdHdvIHNoZWV0czoqKiBjaGVjayBkcm9wL3RyYWRlIGhpc3Rvcnk7IGRlZmF1bHQgdG8gdGhlIHRlYW0gaGUgaXMgY3VycmVudGx5IG9uLgogICAoVHJhZGUgaGlzdG9yeSBpcyBub3QgZXhwb3NlZCBieSB0aGUgcHVibGljIEZhbnRyYXggQVBJIOKAlCBjaGVjayB2aWEgdGhlIEZhbnRyYXgKICAgVHJhbnNhY3Rpb24gSGlzdG9yeSBwYWdlL0NTVi4pCjMuICoqUGxheWVyIG9uIG5vIFNEQSByb3N0ZXI6KiogY29uZmlybSBkcm9wcGVkICh0cmVhdCBhcyBkcm9wcGVkL2V4cGlyZWQgY29udHJhY3QpLgo0LiAqKk1pc3NpbmcgY29udHJhY3QgeWVhcnM6KiogdHJlYXQgYXMgc2lnbmVkIGZvciAyMDI2LCBmcmVlIGFnZW50IGluIDIwMjcgKDEteWVhciBkZWFsKS4KNS4gKipDb250cmFjdCB5ZWFycyBhcmUgTi9BIGZvciBtaW5vci1sZWFndWUgcGxheWVycyoqIChydWxpbmcgMjAyNi0xMC0wNiwgZnJvbSB0aGUgWWVzYXZhZ2UKICAgcm93KS4gTWlncmF0aW9uIGltcGxpY2F0aW9uOiBBTEwgbWlub3JzLXJvc3RlcmVkIHBsYXllcnMgc2hvdWxkIGNhcnJ5IG5vIGNvbnRyYWN0IHRlcm0gYW5kCiAgIG5vIGNhcCBoaXQg4oCUIHZlcmlmeSB0aGUgbWlncmF0aW9uIGFscmVhZHkgZG9lcyB0aGlzIChjb25zaXN0ZW50IHdpdGggdGhlIDIwMjYtMTAtMDIgcnVsaW5nCiAgIHRoYXQgbWlub3JzIHBsYWNlaG9sZGVycyBnZXQgbm8gY29udHJhY3QgdW50aWwgYW4gTUxCIG1vdmUgcGx1cyBtdWx0aS15ZWFyIGFubm91bmNlbWVudDsKICAgdGhlIGxlZGdlci1maWx0ZXIgZml4IGZvciBtaWdyYXRlZCBTSUdORUQtZXZlbnQgY2FwIGNvdW50aW5nIGlzIGFscmVhZHkgbm90ZWQgYXMgbmVlZGVkKS4KNi4gKipDb25maXJtZWQgdGFiIOKGkiB0ZWFtIG1hcDoqKiBCb2Ug4oaSIEJvZSdzIFByb3NwZWN0IFByZXNjaG9vbDsgTWFsb3VuIOKGkiBXaXR0LW5lc3MgUHJvdGVjdGlvbgogICBQcm9ncmFtOyBIb2ZmbWFuIOKGkiBEaW5nZXIgRGF2ZSdzIERlbW9saXRpb24gU3F1YWQ7IFBlY29yYSDihpIgQXJteSBvZiB0aGUgUG90b21hYzsKICAgQy4gUGVsdG9uIOKGkiAjU2F2ZVRoZUtleWhvbGU7IFcuIFBlbHRvbiDihpIgTWlnaHR5IE1lbG9uaGVhZHM7IFJpZ2dlbiDihpIgMTAgZGF5IElMOwogICBBLiBSb2xhaW4g4oaSIDIwMTcgTUxCIEFsbCBTdGFyczsgTS4gUm9sYWluIOKGkiBHbG9yaW91cyBHb2dnbGVzOyBQaXRsb2NrIOKGkiBNYWdpYyBNYXR0CiAgIEZhbnRhc3kgQmFzZWJhbGwuCgojIyBPcGVuIGZlYXR1cmUKClRyYWRlZCBwbGF5ZXJzIGNhbiBjYXJyeSByZXRhaW5lZCBjb250cmFjdCBvYmxpZ2F0aW9uICh0cmFkaW5nIHRlYW0ga2VlcHMgcGFydCBvZiB0aGUgY2FwIGhpdCkuClRoaXMgaXMgbm90IHlldCBtb2RlbGVkIOKAlCBuZWVkcyBhIGRlc2lnbi9idWlsZCBpdGVtIChlLmcuIGEgcmV0YWluZWQtc2FsYXJ5IGxlZGdlciBlbnRyeSBvcgpjb250cmFjdCBzcGxpdCBvbiB0cmFkZSkuCgojIyBTdGF0dXMgc3VtbWFyeQoKLSAyNCBleGNlcHRpb24gcm93cyByZXZpZXdlZDogKioxOSByZXNvbHZlZCB0byBhIHJvc3RlcmVkIHBsYXllcioqLCAqKjUgZmxhZ2dlZCBjb25maXJtLWRyb3BwZWQqKi4KLSAwIGNhcCBlcnJvcnMgKHVuY2hhbmdlZCkuCgotLS0KCiMjIDEpIFVucmVzb2x2ZWQgYWxpYXMgcm93cwoKIyMjIEJvZSB8IFJvdyA0MyB8IExlb2RhbGlzIERlIFZyaWVzCi0gQ29ycmVjdCBGYW50cmF4IHBsYXllcjogKipEZSBWcmllcywgTGVvKioKLSBDdXJyZW50IEZhbnRyYXggdGVhbTogKipCb2UncyBQcm9zcGVjdCBQcmVzY2hvb2wqKiAoQm9lKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA2N3ljKioKLSBSb3N0ZXIgc3RhdHVzOiBNSU5PUlMsIHJvc3RlcmVkCi0gTm90ZXM6IFRoZSB3b3Jrc2hlZXQncyBwcmUtZmlsbGVkICJEcm9wcGVkIiBub3RlIGlzICoqd3JvbmcqKiDigJQgaGUgaXMgb24gQm9lJ3Mgcm9zdGVyLiBNYXRjaCB0byAwNjd5Yy4KCiMjIyBNYWxvdW4gfCBSb3cgNDIgfCBMZW9uYXJkbyBCZXJuYWwKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKkJlcm5hbCwgTGVvKioKLSBDdXJyZW50IEZhbnRyYXggdGVhbTogKipXaXR0LW5lc3MgUHJvdGVjdGlvbiBQcm9ncmFtKiogKE1hbG91bikKLSBGYW50cmF4IHBsYXllciBJRDogKiowNXJjdyoqCi0gUm9zdGVyIHN0YXR1czogTUlOT1JTLCByb3N0ZXJlZAotIE5vdGVzOiBUaGUgb3RoZXIgRmFudHJheCAiQmVybmFsIiAoSm9uYXRhbiBCZXJuYWwsIEFSSSBSUCwgMDYweWYpIGlzIHVucm9zdGVyZWQuIE1hdGNoIHRvIDA1cmN3LgoKIyMjIEhvZmZtYW4gfCBSb3cgMTIgfCBSeWFuIE8nSGVhcm4KLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKk9IZWFybiwgUnlhbioqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqRGluZ2VyIERhdmUncyBEZW1vbGl0aW9uIFNxdWFkKiogKEhvZmZtYW4pCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDNkZ3EqKgotIFJvc3RlciBzdGF0dXM6IElOSlVSRURfUkVTRVJWRSwgcm9zdGVyZWQKLSBOb3RlczogUGVyIHJ1bGluZyAyLCBkZWZhdWx0cyB0byBjdXJyZW50IHJvc3RlciB0ZWFtIChIb2ZmbWFuKS4gVHJhZGUgaGlzdG9yeSB2cyBQZWNvcmEKICBjb3VsZCBub3QgYmUgY2hlY2tlZCB2aWEgQVBJIOKAlCB2ZXJpZnkgb24gdGhlIEZhbnRyYXggVHJhbnNhY3Rpb24gSGlzdG9yeSBwYWdlIGlmIGl0IG1hdHRlcnMuCgojIyMgSG9mZm1hbiB8IFJvdyA1MCB8IE1pa2UgU29yb2thCi0gQ29ycmVjdCBGYW50cmF4IHBsYXllcjogKipTb3Jva2EsIE1pY2hhZWwqKgotIEN1cnJlbnQgRmFudHJheCB0ZWFtOiDigJQgKG5vbmUpCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDNwamYqKgotIFJvc3RlciBzdGF0dXM6ICoqTk9UIE9OIEFOWSBTREEgUk9TVEVSKioKLSBOb3RlczogKipDb21taXNzaW9uZXItY29uZmlybWVkIGRyb3BwZWQgMjAyNi0xMC0wNioqIOKAlCBleGNsdWRlIGZyb20gbWlncmF0aW9uLgoKIyMjIFBlY29yYSB8IFJvdyAyMSB8IFJ5YW4gTydIZWFybiDigJQgRFVQTElDQVRFLCByZXNvbHZlcyB0byBIb2ZmbWFuCi0gQ29ycmVjdCBGYW50cmF4IHBsYXllcjogKipPSGVhcm4sIFJ5YW4qKiAoMDNkZ3EpCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqRGluZ2VyIERhdmUncyBEZW1vbGl0aW9uIFNxdWFkKiogKEhvZmZtYW4pCi0gUm9zdGVyIHN0YXR1czogcm9zdGVyZWQgb24gSG9mZm1hbidzIHRlYW0KLSBOb3RlczogU2FtZSBwbGF5ZXIgYXMgSG9mZm1hbiBSb3cgMTI7IG9ubHkgb25lIHJvc3RlciBzcG90IGV4aXN0cy4gUGVyIHJ1bGluZyAyLCBhc3NpZ24gdG8KICBIb2ZmbWFuLiBQZWNvcmEncyBSb3cgMjEgaXMgc3RhbGUgKG9yIE8nSGVhcm4gd2FzIHRyYWRlZCBQZWNvcmEg4oaSIEhvZmZtYW4g4oCUIGNoZWNrIGhpc3RvcnkpLgogIFJlbW92ZSBSb3cgMjEgZnJvbSBQZWNvcmEncyBtaWdyYXRpb24gaW5wdXQuCgojIyMgQy4gUGVsdG9uIHwgUm93IDY3IHwgSmFyZWQgSm9uZXMKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKkpvbmVzLCBKYXJlZCoqIChTUCkKLSBDdXJyZW50IEZhbnRyYXggdGVhbTog4oCUIChub25lKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA1aDJ1KioKLSBSb3N0ZXIgc3RhdHVzOiAqKk5PVCBPTiBBTlkgU0RBIFJPU1RFUioqCi0gTm90ZXM6ICoqQ29tbWlzc2lvbmVyLWNvbmZpcm1lZCBkcm9wcGVkIDIwMjYtMTAtMDYqKiDigJQgZXhjbHVkZSBmcm9tIG1pZ3JhdGlvbi4gKEZhbnRyYXggYWxzbyBjYXJyaWVzIGEgZHVwbGljYXRlICJKb25lcywgSmFyZWQgMUIiCiAgZW50cnkgMDV1MzA7IHRoZSBTUCAwNWgydSBpcyB0aGUgcmVhbCBwbGF5ZXIuIEJvdGggdW5yb3N0ZXJlZC4pCgojIyMgVy4gUGVsdG9uIHwgUm93IDE4IHwgRS4gRHVyYW4KLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKkR1cmFuLCBFemVxdWllbCoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqTWlnaHR5IE1lbG9uaGVhZHMqKiAoVy4gUGVsdG9uKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA0bnF4KioKLSBSb3N0ZXIgc3RhdHVzOiBBQ1RJVkUsIHJvc3RlcmVkCi0gTm90ZXM6ICJFLiIgbWF0Y2hlcyBFemVxdWllbDsgSmhvYW4gRHVyYW4gaXMgb24gUGVjb3JhJ3Mgcm9zdGVyLCBKYXJyZW4gRHVyYW4gb24gTWFsb3VuJ3MuCgojIyMgVy4gUGVsdG9uIHwgUm93IDI5IHwgQi4gQmFrZXIKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKkJha2VyLCBCcnlhbioqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqTWlnaHR5IE1lbG9uaGVhZHMqKiAoVy4gUGVsdG9uKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA0MXc0KioKLSBSb3N0ZXIgc3RhdHVzOiBBQ1RJVkUsIHJvc3RlcmVkCi0gTm90ZXM6IE9ubHkgcm9zdGVyZWQgQmFrZXIgaW4gdGhlIGxlYWd1ZS4KCiMjIyBXLiBQZWx0b24gfCBSb3cgMzkgfCBSLiBTYXNha2kKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKlNhc2FraSwgUm9raSoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqTWlnaHR5IE1lbG9uaGVhZHMqKiAoVy4gUGVsdG9uKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA1Z2R6KioKLSBSb3N0ZXIgc3RhdHVzOiBNSU5PUlMsIHJvc3RlcmVkCgojIyMgVy4gUGVsdG9uIHwgUm93IDQyIHwgRS4gUnVpegotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqUnVpeiwgRXN0ZXVyeSoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqTWlnaHR5IE1lbG9uaGVhZHMqKiAoVy4gUGVsdG9uKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA0MDZ2KioKLSBSb3N0ZXIgc3RhdHVzOiBBQ1RJVkUsIHJvc3RlcmVkCi0gTm90ZXM6IE9ubHkgcm9zdGVyZWQgRS4gUnVpeiBpbiB0aGUgbGVhZ3VlLgoKIyMjIFcuIFBlbHRvbiB8IFJvdyA0MyB8IEUuIFZhbGVuY2lhCi0gQ29ycmVjdCBGYW50cmF4IHBsYXllcjogKipWYWxlbmNpYSwgRWR1YXJkbyoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqTWlnaHR5IE1lbG9uaGVhZHMqKiAoVy4gUGVsdG9uKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA2cmtrKioKLSBSb3N0ZXIgc3RhdHVzOiBNSU5PUlMsIHJvc3RlcmVkCi0gTm90ZXM6IFRocmVlIFZhbGVuY2lhcyBpbiBGYW50cmF4IChFc21pbC9NSUEsIEFudGh1YW4vQ0lOLCBFZHVhcmRvL0RFVCkg4oCUIEVkdWFyZG8gaXMgdGhlCiAgb25seSBvbmUgb24gYW4gU0RBIHJvc3Rlci4KCiMjIyBXLiBQZWx0b24gfCBSb3cgNDQgfCBCLiBDaGFuZGxlcgotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqQ2hhbmRsZXIsIEJ1YmJhKioKLSBDdXJyZW50IEZhbnRyYXggdGVhbTogKipNaWdodHkgTWVsb25oZWFkcyoqIChXLiBQZWx0b24pCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDVyaWsqKgotIFJvc3RlciBzdGF0dXM6IE1JTk9SUywgcm9zdGVyZWQKCiMjIyBXLiBQZWx0b24gfCBSb3cgNDUgfCBBLiBQYWludGVyCi0gQ29ycmVjdCBGYW50cmF4IHBsYXllcjogKipQYWludGVyLCBBbmRyZXcqKgotIEN1cnJlbnQgRmFudHJheCB0ZWFtOiAqKk1pZ2h0eSBNZWxvbmhlYWRzKiogKFcuIFBlbHRvbikKLSBGYW50cmF4IHBsYXllciBJRDogKiowNXIzaSoqCi0gUm9zdGVyIHN0YXR1czogTUlOT1JTLCByb3N0ZXJlZAoKIyMjIFcuIFBlbHRvbiB8IFJvdyA1MyB8IEEuIEZpc2NoZXIKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKkZpc2NoZXIsIEFuZHJldyoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqTWlnaHR5IE1lbG9uaGVhZHMqKiAoVy4gUGVsdG9uKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA2azd0KioKLSBSb3N0ZXIgc3RhdHVzOiBNSU5PUlMsIHJvc3RlcmVkCi0gTm90ZXM6IENhcnNvbiBGaXNjaGVyIChXU0ggUlAsIDA3MGRiKSBpcyB1bnJvc3RlcmVkLgoKIyMjIFJpZ2dlbiB8IFJvdyAzMCB8IFdyb2JsZXNraQotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqV3JvYmxlc2tpLCBKdXN0aW4qKgotIEN1cnJlbnQgRmFudHJheCB0ZWFtOiDigJQgKG5vbmUpCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDV5OXIqKgotIFJvc3RlciBzdGF0dXM6ICoqTk9UIE9OIEFOWSBTREEgUk9TVEVSKioKLSBOb3RlczogKipDb21taXNzaW9uZXItY29uZmlybWVkIGRyb3BwZWQgMjAyNi0xMC0wNioqIOKAlCBleGNsdWRlIGZyb20gbWlncmF0aW9uLgoKIyMjIFJpZ2dlbiB8IFJvdyAzMyB8IEhlcmdldAotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqSGVyZ2V0LCBKaW1teSoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqMTAgZGF5IElMKiogKFJpZ2dlbikKLSBGYW50cmF4IHBsYXllciBJRDogKiowM3FsbioqCi0gUm9zdGVyIHN0YXR1czogQUNUSVZFLCByb3N0ZXJlZAotIE5vdGVzOiBLZXZpbiBIZXJnZXQgKE5ZTSBSUCwgMDNhdDApIGlzIHVucm9zdGVyZWQuCgojIyMgUmlnZ2VuIHwgUm93IDQ2IHwgU2NobWl0dAotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqU2NobWl0dCwgQ2FzZXkqKgotIEN1cnJlbnQgRmFudHJheCB0ZWFtOiDigJQgKG5vbmUpCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDVqcDQqKgotIFJvc3RlciBzdGF0dXM6ICoqTk9UIE9OIEFOWSBTREEgUk9TVEVSKioKLSBOb3RlczogKipDb21taXNzaW9uZXItY29uZmlybWVkIGRyb3BwZWQgMjAyNi0xMC0wNioqIOKAlCBleGNsdWRlIGZyb20gbWlncmF0aW9uLgoKIyMjIEEuIFJvbGFpbiB8IFJvdyA0OCB8IFJpbGV5IE8nQnJpZW4KLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKk9CcmllbiwgUmlsZXkqKgotIEN1cnJlbnQgRmFudHJheCB0ZWFtOiAqKjIwMTcgTUxCIEFsbCBTdGFycyoqIChBLiBSb2xhaW4pCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDRlajMqKgotIFJvc3RlciBzdGF0dXM6IE1JTk9SUywgcm9zdGVyZWQKCiMjIyBNLiBSb2xhaW4gfCBSb3cgNjAgfCBTZXRoIExlZ28g4oaSIGNvbmZpcm1lZCBTRVRIIExVR08sIHJlc29sdmVzIHRvIFBlY29yYQotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqTHVnbywgU2V0aCoqIChjb21taXNzaW9uZXItY29uZmlybWVkOiAiU2V0aCBMZWdvIiBpcyBTZXRoIEx1Z28pCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqQXJteSBvZiB0aGUgUG90b21hYyoqIChQZWNvcmEg4oCUIE5PVCBNLiBSb2xhaW4pCi0gRmFudHJheCBwbGF5ZXIgSUQ6ICoqMDNzZWYqKgotIFJvc3RlciBzdGF0dXM6IEFDVElWRSwgcm9zdGVyZWQKLSBOb3RlczogUGVyIHJ1bGluZyAxLCBhc3NpZ24gdG8gUGVjb3JhLiBNLiBSb2xhaW4ncyBSb3cgNjAgaXMgc3RhbGUsIG9yIEx1Z28gd2FzIHRyYWRlZAogIE0uIFJvbGFpbiDihpIgUGVjb3JhIChwb3NzaWJseSB3aXRoIHJldGFpbmVkIHNhbGFyeSDigJQgc2VlIG9wZW4gZmVhdHVyZSBhYm92ZSkuCgojIyMgTS4gUm9sYWluIHwgUm93IDY0IHwgUm9iYnkgUmF5IOKGkiByZXNvbHZlcyB0byBQZWNvcmEKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKlJheSwgUm9iYmllKioKLSBDdXJyZW50IEZhbnRyYXggdGVhbTogKipBcm15IG9mIHRoZSBQb3RvbWFjKiogKFBlY29yYSDigJQgTk9UIE0uIFJvbGFpbikKLSBGYW50cmF4IHBsYXllciBJRDogKiowMjVqMSoqCi0gUm9zdGVyIHN0YXR1czogQUNUSVZFLCByb3N0ZXJlZAotIE5vdGVzOiBQZXIgcnVsaW5nIDEsIGFzc2lnbiB0byBQZWNvcmEuIFNhbWUgc3RhbGUtcm93LW9yLXRyYWRlIHF1ZXN0aW9uIGFzIEx1Z287IGlmIGJvdGgKICBtb3ZlZCB0b2dldGhlciwgY2hlY2sgZm9yIG9uZSBNLiBSb2xhaW4g4oaSIFBlY29yYSB0cmFkZS4KCi0tLQoKIyMgMikgSW52YWxpZCBvciBtaXNzaW5nIGNvbnRyYWN0IHllYXJzCgojIyMgQy4gUGVsdG9uIHwgUm93IDc5IHwgRGlkaWVyIEZ1ZW50ZXMgKDIwMjYvMjAyNykKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKkZ1ZW50ZXMsIERpZGllcioqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06ICoqI1NhdmVUaGVLZXlob2xlKiogKEMuIFBlbHRvbikKLSBGYW50cmF4IHBsYXllciBJRDogKiowNjR6bSoqCi0gUm9zdGVyIHN0YXR1czogTUlOT1JTLCByb3N0ZXJlZAotIEFjdHVhbCBjb250cmFjdCB5ZWFyczogKioxKiogKHBlciBydWxpbmcgNDogc2lnbmVkIDIwMjYsIEZBIDIwMjcpCi0gWWVhciBhZGRlZDogMjAyNgotIENvcnJlY3QgRkEgeWVhcjogMjAyNwoKIyMjIEMuIFBlbHRvbiB8IFJvdyA4MCB8IENoYXNlIERvbGxhbmRlciAoMjAyNi8yMDI3KQotIENvcnJlY3QgRmFudHJheCBwbGF5ZXI6ICoqRG9sbGFuZGVyLCBDaGFzZSoqCi0gQ3VycmVudCBGYW50cmF4IHRlYW06IOKAlCAobm9uZSkKLSBGYW50cmF4IHBsYXllciBJRDogKiowNXlqMCoqCi0gUm9zdGVyIHN0YXR1czogKipOT1QgT04gQU5ZIFNEQSBST1NURVIqKgotIE5vdGVzOiAqKkNvbW1pc3Npb25lci1jb25maXJtZWQgZHJvcHBlZCAyMDI2LTEwLTA2Kiog4oCUIGV4Y2x1ZGUgZnJvbSBtaWdyYXRpb24uCgotLS0KCiMjIDMpIEJsYW5rIG1vdmUgdHlwZSB3aXRoIG11bHRpLXllYXIgY29udHJhY3QgYWJvdmUgd2FpdmVyL0ZBIGxpbWl0CgojIyMgUGl0bG9jayB8IFJvdyA2MSB8IFRyZXkgWWVzYXZhZ2UKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKlllc2F2YWdlLCBUcmV5KioKLSBDdXJyZW50IEZhbnRyYXggdGVhbTogKipNYWdpYyBNYXR0IEZhbnRhc3kgQmFzZWJhbGwqKiAoUGl0bG9jaykKLSBGYW50cmF4IHBsYXllciBJRDogKiowNmFweCoqCi0gUm9zdGVyIHN0YXR1czogTUlOT1JTLCByb3N0ZXJlZAotIFJvc3RlciBsZXZlbDogKiptaW5vcnMqKiAoY29tbWlzc2lvbmVyLWNvbmZpcm1lZCAyMDI2LTEwLTA2IOKAlCBkcmFmdGVkLCBuZXZlciBhZGRlZCB0byBNTEIgcm9zdGVyKQotIENvcnJlY3QgbW92ZSB0eXBlOiAqKmRyYWZ0ZWQqKiAoY29tbWlzc2lvbmVyLWNvbmZpcm1lZCAyMDI2LTEwLTA2KQotIENvbnRyYWN0IHllYXJzOiAqKk4vQSDigJQgY29tbWlzc2lvbmVyIHJ1bGluZyAyMDI2LTEwLTA2OiBjb250cmFjdCB5ZWFycyBkbyBub3QgYXBwbHkgdG8gbWlub3ItbGVhZ3VlIHBsYXllcnMqKgotIE5vdGVzOiBSb3cgZnVsbHkgcmVzb2x2ZWQuIENvbnNpc3RlbnQgd2l0aCB0aGUgMjAyNi0xMC0wMiBydWxpbmcgdGhhdCBtaW5vcnMtc2hlZXQgcGxheWVycwogIGNhcnJ5IG5vIGNvbnRyYWN0IGFuZCBjb25zdW1lIG5vIGNhcCB1bnRpbCBtb3ZlZCB0byBhbiBhY3RpdmUgTUxCIHNsb3Qgd2l0aCBhIG11bHRpLXllYXIKICBhbm5vdW5jZW1lbnQuIE1pZ3JhdGlvbiBzaG91bGQgc3RvcmUgTlVMTC9ubyBjb250cmFjdCB0ZXJtIGZvciB0aGlzIHJvdy4KCi0tLQoKIyMgNCkgQWN0aXZlIHBsYXllciBhYnNlbnQgZnJvbSBjdXJyZW50IEZhbnRyYXggcm9zdGVyIGJleW9uZCAzIHllYXJzCgojIyMgQS4gUm9sYWluIHwgUm93IDQ2IHwgQ2FkZSBTbWl0aCDigJQgU1RBTEUgRVhDRVBUSU9OLCBwbGF5ZXIgaXMgcm9zdGVyZWQKLSBDb3JyZWN0IEZhbnRyYXggcGxheWVyOiAqKlNtaXRoLCBDYWRlKiogKENMRSBSUCkKLSBDdXJyZW50IEZhbnRyYXggdGVhbTogKioyMDE3IE1MQiBBbGwgU3RhcnMqKiAoQS4gUm9sYWluKQotIEZhbnRyYXggcGxheWVyIElEOiAqKjA0ZW9yKioKLSBSb3N0ZXIgc3RhdHVzOiAqKkFDVElWRSwgcm9zdGVyZWQqKiAoY2hlY2tlZCAyMDI2LTEwLTA2KQotIE5vdGVzOiBUaGlzIGV4Y2VwdGlvbiBhcHBlYXJzIHN0YWxlIOKAlCBDYWRlIFNtaXRoIGlzIG9uIEEuIFJvbGFpbidzIHJvc3Rlci4gTWF0Y2ggdG8gMDRlb3IuCiAgKEZhbnRyYXggYWxzbyBoYXMgYSAiU21pdGgsIENhZGUgTllZIFNQIiAwNmYxNSBlbnRyeTsgdGhlIENMRSBSUCBpcyB0aGUgcmVhbCBwbGF5ZXIuKQoKLS0tCgojIyBNYW51YWwgcmVzb2x1dGlvbiBmaW5hbCBjaGVja2xpc3QKCi0gW3hdIEFsbCB1bnJlc29sdmVkIGFsaWFzIHJvd3MgbWF0Y2hlZCB0byBhIHVuaXF1ZSBGYW50cmF4IHBsYXllciAoMTkgcm9zdGVyZWQ7IDUgY29uZmlybS1kcm9wcGVkKQotIFt4XSBBbGwgY29udHJhY3QteWVhciByb3dzIGNvcnJlY3RlZCBvciBjb25maXJtZWQgaW52YWxpZCAoRnVlbnRlcyDihpIgMXlyL0ZBMjAyNzsgRG9sbGFuZGVyIOKGkiBjb25maXJtIGRyb3BwZWQpCi0gW3hdIEJsYW5rIG1vdmUtdHlwZSByb3cgY29uZmlybWVkIG9yIGNvcnJlY3RlZCAoWWVzYXZhZ2Ug4oCUIGRyYWZ0ZWQsIG1pbm9ycywgY29udHJhY3QgeWVhcnMgTi9BIHBlciAyMDI2LTEwLTA2IHJ1bGluZykKLSBbeF0gQW55IGFjdGl2ZSBjb250cmFjdCBvdmVyIDMgeWVhcnMgd2l0aCBubyBjdXJyZW50IHJvc3RlciBtYXRjaCByZXZpZXdlZCAoQ2FkZSBTbWl0aCDigJQgc3RhbGUsIHJvc3RlcmVkKQotIFt4XSBDb21taXNzaW9uZXIgY29uZmlybWVkIHRoZSA1IGRyb3BwZWQgcGxheWVycyAoU29yb2thLCBKYXJlZCBKb25lcywgV3JvYmxlc2tpLCBTY2htaXR0LCBEb2xsYW5kZXIg4oCUIDIwMjYtMTAtMDYpCi0gWyBdIENvbW1pc3Npb25lciB0byBjb25maXJtIE8nSGVhcm4g4oaSIEhvZmZtYW4gb25seSAocmVtb3ZlIFBlY29yYSBSb3cgMjEpIGFuZCBMdWdvL1JheSDihpIgUGVjb3JhCiAgICAgIChjaGVjayBNLiBSb2xhaW4g4oaSIFBlY29yYSB0cmFkZSBoaXN0b3J5IGZvciByZXRhaW5lZCBzYWxhcnkpCi0gWyBdIERyeS1ydW4gcmVydW4gd2l0aCB6ZXJvIGV4Y2VwdGlvbnMgYW5kIGBjYW5fY29tbWl0ID0gVHJ1ZWAK
+# Manual contract resolution review
+
+Filled 2026-10-06 against the live Fantrax API (`getPlayerIds` + `getTeamRosters`) per the
+commissioner's rulings. All 24 rows resolved: 19 matched to rostered players, 5 confirmed
+dropped. The current dry-run matches 554/554 rows with zero exceptions and plans 179 events;
+the production migration has not been committed. Review the event-level preview at
+`data/migration_event_preview_2026-10-06.csv`.
+
+## Commissioner rulings (2026-10-06)
+
+1. **The SDA (Fantrax) roster is the ultimate source of truth.** If a player is on a roster,
+   assign him to that team.
+2. **Player on two sheets:** check drop/trade history; default to the team he is currently on.
+   (Trade history is not exposed by the public Fantrax API — check via the Fantrax
+   Transaction History page/CSV.)
+3. **Player on no SDA roster:** confirm dropped (treat as dropped/expired contract).
+4. **Missing contract years:** treat as signed for 2026, free agent in 2027 (1-year deal).
+5. **The reviewed Fantrax-minors terms were placeholders, not official deals** (ruling 2026-10-06,
+  including the Yesavage row). Those reviewed rows have no contract event or cap hit. If an
+  official multi-year contract is later confirmed for a player demoted to minors, preserve the
+  contract and count its cap years even while the player remains in a minors slot.
+6. **Confirmed tab → team map:** Boe → Boe's Prospect Preschool; Maloun → Witt-ness Protection
+   Program; Hoffman → Dinger Dave's Demolition Squad; Pecora → Army of the Potomac;
+   C. Pelton → #SaveTheKeyhole; W. Pelton → Mighty Melonheads; Riggen → 10 day IL;
+   A. Rolain → 2017 MLB All Stars; M. Rolain → Glorious Goggles; Pitlock → Magic Matt
+   Fantasy Baseball.
+
+## Open feature
+
+Traded players can carry retained contract obligation (trading team keeps part of the cap hit).
+This is not yet modeled — needs a design/build item (e.g. a retained-salary ledger entry or
+contract split on trade).
+
+## Status summary
+
+- 24 exception rows reviewed: **19 resolved to a rostered player**, **5 flagged confirm-dropped**.
+- The five current-minors players with apparent multi-year tracker terms were confirmed as placeholders; all are explicitly excluded from the migration.
+- Current dry-run: **554/554 matched**, **0 exceptions**, **0 cap errors**, **179 planned events**, `can_commit=True`.
+- No production ledger events have been written.
+
+---
+
+## 1) Resolved player identity and roster-owner rows
+
+### Boe | Row 43 | Leodalis De Vries
+- Correct Fantrax player: **De Vries, Leo**
+- Current Fantrax team: **Boe's Prospect Preschool** (Boe)
+- Fantrax player ID: **067yc**
+- Roster status: MINORS, rostered
+- Notes: The worksheet's pre-filled "Dropped" note is **wrong** — he is on Boe's roster. Match to 067yc.
+
+### Maloun | Row 42 | Leonardo Bernal
+- Correct Fantrax player: **Bernal, Leo**
+- Current Fantrax team: **Witt-ness Protection Program** (Maloun)
+- Fantrax player ID: **05rcw**
+- Roster status: MINORS, rostered
+- Notes: The other Fantrax "Bernal" (Jonatan Bernal, ARI RP, 060yf) is unrostered. Match to 05rcw.
+
+### Hoffman | Row 12 | Ryan O'Hearn
+- Correct Fantrax player: **OHearn, Ryan**
+- Current Fantrax team: **Dinger Dave's Demolition Squad** (Hoffman)
+- Fantrax player ID: **03dgq**
+- Roster status: INJURED_RESERVE, rostered
+- Notes: Per ruling 2, defaults to current roster team (Hoffman). Trade history vs Pecora
+  could not be checked via API — verify on the Fantrax Transaction History page if it matters.
+
+### Hoffman | Row 50 | Mike Soroka
+- Correct Fantrax player: **Soroka, Michael**
+- Current Fantrax team: — (none)
+- Fantrax player ID: **03pjf**
+- Roster status: **NOT ON ANY SDA ROSTER**
+- Notes: **Commissioner-confirmed dropped 2026-10-06** — exclude from migration.
+
+### Pecora | Row 21 | Ryan O'Hearn — DUPLICATE, resolves to Hoffman
+- Correct Fantrax player: **OHearn, Ryan** (03dgq)
+- Current Fantrax team: **Dinger Dave's Demolition Squad** (Hoffman)
+- Roster status: rostered on Hoffman's team
+- Notes: Same player as Hoffman Row 12; only one roster spot exists. Per ruling 2, assign to
+  Hoffman. Pecora's Row 21 is stale (or O'Hearn was traded Pecora → Hoffman — check history).
+  Remove Row 21 from Pecora's migration input.
+
+### C. Pelton | Row 67 | Jared Jones
+- Correct Fantrax player: **Jones, Jared** (SP)
+- Current Fantrax team: — (none)
+- Fantrax player ID: **05h2u**
+- Roster status: **NOT ON ANY SDA ROSTER**
+- Notes: **Commissioner-confirmed dropped 2026-10-06** — exclude from migration. (Fantrax also carries a duplicate "Jones, Jared 1B"
+  entry 05u30; the SP 05h2u is the real player. Both unrostered.)
+
+### W. Pelton | Row 18 | E. Duran
+- Correct Fantrax player: **Duran, Ezequiel**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **04nqx**
+- Roster status: ACTIVE, rostered
+- Notes: "E." matches Ezequiel; Jhoan Duran is on Pecora's roster, Jarren Duran on Maloun's.
+
+### W. Pelton | Row 29 | B. Baker
+- Correct Fantrax player: **Baker, Bryan**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **041w4**
+- Roster status: ACTIVE, rostered
+- Notes: Only rostered Baker in the league.
+
+### W. Pelton | Row 39 | R. Sasaki
+- Correct Fantrax player: **Sasaki, Roki**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **05gdz**
+- Roster status: MINORS, rostered
+
+### W. Pelton | Row 42 | E. Ruiz
+- Correct Fantrax player: **Ruiz, Esteury**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **0406v**
+- Roster status: ACTIVE, rostered
+- Notes: Only rostered E. Ruiz in the league.
+
+### W. Pelton | Row 43 | E. Valencia
+- Correct Fantrax player: **Valencia, Eduardo**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **06rkk**
+- Roster status: MINORS, rostered
+- Notes: Three Valencias in Fantrax (Esmil/MIA, Anthuan/CIN, Eduardo/DET) — Eduardo is the
+  only one on an SDA roster.
+
+### W. Pelton | Row 44 | B. Chandler
+- Correct Fantrax player: **Chandler, Bubba**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **05rik**
+- Roster status: MINORS, rostered
+
+### W. Pelton | Row 45 | A. Painter
+- Correct Fantrax player: **Painter, Andrew**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **05r3i**
+- Roster status: MINORS, rostered
+
+### W. Pelton | Row 53 | A. Fischer
+- Correct Fantrax player: **Fischer, Andrew**
+- Current Fantrax team: **Mighty Melonheads** (W. Pelton)
+- Fantrax player ID: **06k7t**
+- Roster status: MINORS, rostered
+- Notes: Carson Fischer (WSH RP, 070db) is unrostered.
+
+### Riggen | Row 30 | Wrobleski
+- Correct Fantrax player: **Wrobleski, Justin**
+- Current Fantrax team: — (none)
+- Fantrax player ID: **05y9r**
+- Roster status: **NOT ON ANY SDA ROSTER**
+- Notes: **Commissioner-confirmed dropped 2026-10-06** — exclude from migration.
+
+### Riggen | Row 33 | Herget
+- Correct Fantrax player: **Herget, Jimmy**
+- Current Fantrax team: **10 day IL** (Riggen)
+- Fantrax player ID: **03qln**
+- Roster status: ACTIVE, rostered
+- Notes: Kevin Herget (NYM RP, 03at0) is unrostered.
+
+### Riggen | Row 46 | Schmitt
+- Correct Fantrax player: **Schmitt, Casey**
+- Current Fantrax team: — (none)
+- Fantrax player ID: **05jp4**
+- Roster status: **NOT ON ANY SDA ROSTER**
+- Notes: **Commissioner-confirmed dropped 2026-10-06** — exclude from migration.
+
+### A. Rolain | Row 48 | Riley O'Brien
+- Correct Fantrax player: **OBrien, Riley**
+- Current Fantrax team: **2017 MLB All Stars** (A. Rolain)
+- Fantrax player ID: **04ej3**
+- Roster status: MINORS, rostered
+
+### M. Rolain | Row 60 | Seth Lego → confirmed SETH LUGO, resolves to Pecora
+- Correct Fantrax player: **Lugo, Seth** (commissioner-confirmed: "Seth Lego" is Seth Lugo)
+- Current Fantrax team: **Army of the Potomac** (Pecora — NOT M. Rolain)
+- Fantrax player ID: **03sef**
+- Roster status: ACTIVE, rostered
+- Notes: Per ruling 1, assign to Pecora. M. Rolain's Row 60 is stale, or Lugo was traded
+  M. Rolain → Pecora (possibly with retained salary — see open feature above).
+
+### M. Rolain | Row 64 | Robby Ray → resolves to Pecora
+- Correct Fantrax player: **Ray, Robbie**
+- Current Fantrax team: **Army of the Potomac** (Pecora — NOT M. Rolain)
+- Fantrax player ID: **025j1**
+- Roster status: ACTIVE, rostered
+- Notes: Per ruling 1, assign to Pecora. Same stale-row-or-trade question as Lugo; if both
+  moved together, check for one M. Rolain → Pecora trade.
+
+---
+
+## 2) Invalid or missing contract years
+
+### C. Pelton | Row 79 | Didier Fuentes (2026/2027)
+- Correct Fantrax player: **Fuentes, Didier**
+- Current Fantrax team: **#SaveTheKeyhole** (C. Pelton)
+- Fantrax player ID: **064zm**
+- Roster status: MINORS, rostered
+- Actual contract years: **1** (per ruling 4: signed 2026, FA 2027)
+- Year added: 2026
+- Correct FA year: 2027
+
+### C. Pelton | Row 80 | Chase Dollander (2026/2027)
+- Correct Fantrax player: **Dollander, Chase**
+- Current Fantrax team: — (none)
+- Fantrax player ID: **05yj0**
+- Roster status: **NOT ON ANY SDA ROSTER**
+- Notes: **Commissioner-confirmed dropped 2026-10-06** — exclude from migration.
+
+---
+
+## 3) Blank move type with multi-year contract above waiver/FA limit
+
+### Pitlock | Row 61 | Trey Yesavage
+- Correct Fantrax player: **Yesavage, Trey**
+- Current Fantrax team: **Magic Matt Fantasy Baseball** (Pitlock)
+- Fantrax player ID: **06apx**
+- Roster status: MINORS, rostered
+- Roster level: **minors** (commissioner-confirmed 2026-10-06 — drafted, never added to MLB roster)
+- Correct move type: **drafted** (commissioner-confirmed 2026-10-06)
+- Contract years: **N/A — commissioner ruling 2026-10-06: contract years do not apply to minor-league players**
+- Notes: Row fully resolved. Consistent with the 2026-10-02 ruling that minors-sheet players
+  carry no contract and consume no cap until moved to an active MLB slot with a multi-year
+  announcement. Migration should store NULL/no contract term for this row.
+
+---
+
+## 4) Active player absent from current Fantrax roster beyond 3 years
+
+### A. Rolain | Row 46 | Cade Smith — STALE EXCEPTION, player is rostered
+- Correct Fantrax player: **Smith, Cade** (CLE RP)
+- Current Fantrax team: **2017 MLB All Stars** (A. Rolain)
+- Fantrax player ID: **04eor**
+- Roster status: **ACTIVE, rostered** (checked 2026-10-06)
+- Notes: This exception appears stale — Cade Smith is on A. Rolain's roster. Match to 04eor.
+  (Fantrax also has a "Smith, Cade NYY SP" 06f15 entry; the CLE RP is the real player.)
+
+## Duplicate rows resolved by multi-year scope
+
+The migration report includes only contracts longer than one year. Rows with one year or less are omitted whether they are marked dropped or active; Fantrax ownership is used to choose the current-team row when a multi-year contract is duplicated. No source CSV has been changed.
+
+| Fantrax player / ID | Sheet rows and contract fields | Migration handling |
+| --- | --- | --- |
+| Framber Valdez / `04auj` | Pecora row 36: Draft, 2 years, added 2026, not dropped. C. Pelton row 70: Waiver, 1 year, added 2026, dropped. | Keep Pecora row 36; omit the 1-year row. |
+| MacKenzie Gore / `04cd5` | C. Pelton row 66 and M. Rolain row 61: both 1-year, marked dropped. | Omit both rows from the multi-year migration. |
+| Aaron Nola / `02i3o` | C. Pelton row 72 and Pitlock row 58: both 1-year, marked dropped. | Omit both rows from the multi-year migration. |
+| Brooks Lee / `04yig` | Pitlock row 24 and M. Rolain row 54: both 1-year, marked dropped. | Omit both rows from the multi-year migration. |
+| Nick Martinez / `02c4q` | Pitlock rows 47 and 49 and M. Rolain row 59: all 1-year; row 59 is marked dropped. | Omit all three rows from the multi-year migration. |
+
+---
+
+## Manual resolution final checklist
+
+- [x] All unresolved alias rows matched to a unique Fantrax player (19 rostered; 5 confirm-dropped)
+- [x] All contract-year rows corrected or confirmed invalid (Fuentes → 1yr/FA2027; Dollander → confirm dropped)
+- [x] Blank move-type row confirmed or corrected (Yesavage — drafted, minors, contract years N/A per 2026-10-06 ruling)
+- [x] Any active contract over 3 years with no current roster match reviewed (Cade Smith — stale, rostered)
+- [x] Commissioner confirmed the 5 dropped players (Soroka, Jared Jones, Wrobleski, Schmitt, Dollander — 2026-10-06)
+- [x] O'Hearn duplicate resolved to Hoffman; omit stale Pecora Row 21 from migration
+- [x] Omit 1-year duplicate rows and retain Framber Valdez's 2-year Pecora row
+- [x] Lugo/Ray 1-year rows excluded from the multi-year migration scope
+- [x] Dry-run rerun with zero exceptions and `can_commit = True`

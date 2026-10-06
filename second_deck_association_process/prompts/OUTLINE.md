@@ -25,16 +25,16 @@
 
 - Live DB is a local DuckDB file (`data/sda.duckdb`), gitignored. After each run, commit a **text snapshot** (SQL dump or Parquet→CSV export) so git history is the audit trail.
 - Tables: `teams`, `players` (`fantrax_id` PK, name aliases, `real_draft_year`, positions), `contract_events` (**append-only**: timestamp, team, player, event type — SIGNED / EXTENDED / DROPPED / EXPIRED / CALLED_UP / CAP_TRADE — years, FA year, source [form / manual / migration / fantrax / system], form-intake metadata [form_ref, acquisition_type, announced_at], note, approved_by), `roster_snapshots`, `pending_contracts` (form-submission approval queue), `season_config`, `league_history` (season records, champions, prize winnings).
-- **Roster level vs move type:** `roster_level` (MLB / minors) is a classification separate from `move_type` (Draft / Waiver / …). The tracker's Move Type value `DFA` was only ever a stand-in for minor-league status — and its "contract years" were planning placeholders, not deals: those rows get **no contract event at all** (DFA/minors audit only). The ledger rejects `SIGNED`/`EXTENDED` with `roster_level='minors'`; a minor leaguer's first real deal is a `CALLED_UP` event.
+- **Roster level vs move type vs contract status:** `roster_level` (MLB / minors) is independent from `move_type` and whether an official contract exists. Uncontracted minor-league roster entries are valid and carry no contract event or cap charge. An official active multi-year deal remains active and counts against cap when that player is demoted to minors. Tracker `DFA`/`Minors` values and placeholder years are not official contracts. Contract history, not current roster level, determines whether a demoted player retains a deal; a move from minors to MLB requires an active official contract event.
 - Current state is always derived by replaying `contract_events`; `years_remaining = fa_year − current_season`.
 - Acceptance: rebuild the DB from snapshots alone; ledger-replay unit test.
 
 ## Prompt 3 — Sheets migration (one-time backfill)
 
-- Source: "SDA - Major League Contract Tracker" (CSV export or Sheets API). Commissioner's local copy lives at `/Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/` — **one CSV per team tab is needed** (10 team tabs only). The Salary Cap Tracking, Estimated Free Agent Class, and League History tabs are deliberately NOT migrated: cap tracking restarts at 78/team/season (future trades via Discord), FA projection is derived from `fa_year`, and history accumulates from the Fantrax API going forward.
-- Map columns — Player, Pos, FA Year, Move Type (Draft / Waiver / DFA / NULL), Legal flag, IL, Dropped, Years, Year added — into `contract_events` with `source=migration`. Move Type `DFA` → no event (planning placeholder; audit only).
+- Source: "SDA - Major League Contract Tracker" (CSV export or Sheets API). Commissioner's local copy lives at `/Users/matthewpitlock/Development/SDACommishprocess/data/contractmigrationdata/` — **one CSV per team tab is needed** (10 team tabs only). The Salary Cap Tracking, Estimated Free Agent Class, League History, and prior-season Cap Trade Tracker are not migrated. For the next seven years, every team starts with a 78-year base cap and no prior-season cap-trade carryover; future reviewed trades are applied prospectively. FA projection is derived from `fa_year`, and history accumulates from Fantrax going forward.
+- Migration carries forward only official contracts longer than one year (`contract_years > 1`). Prior-season one-year deals are excluded. Missing non-minor contract years default to a 2026 one-year deal (FA 2027), and are therefore excluded. Uncontracted current-minors rows and `DFA`/`Minors` planning placeholders create no event. Preserve a confirmed official multi-year contract even if its player is currently in a minors slot; review ambiguous terms before cutover.
 - Produce a **reconciliation report**: every Sheet player matched to a Fantrax roster entry; orphans listed; cap totals recomputed vs the Sheet's Salary Cap Tracking tab; every discrepancy flagged for commissioner review before cutover.
-- Import the Cap Trade Tracker rows as first-class CAP_TRADE events (supported per commissioner; recommend committee ratification since the constitution is silent).
+- Do not import prior-season CAP_TRADE rows. Start each team at 78 base years for each of the next seven seasons; add future approved cap trades prospectively.
 - Seed `league_history` from the tracker's League History tab (champions, records, prize winnings); gaps filled manually.
 - After cutover the Sheet becomes a read-only reference.
 - Acceptance: reconciliation report with zero *unexplained* discrepancies.
@@ -43,33 +43,34 @@
 
 Encode Constitution Art. IV plus the tracked clarifications. Output: per-team pass/fail report.
 
-- **V1 cap:** Σ contract years ≤ 78 + (# of IL players), adjusted by CAP_TRADE events (cap years traded in/out). IL from Fantrax roster (Inj Res slots) reconciled with the tracker's IL flag.
+- **V1 cap:** Σ active official contract years ≤ 78 + (# of IL players), adjusted by prospective CAP_TRADE events only. Initialize each team at 78 base years for each of the next seven seasons; no previous-season trade adjustments carry over. Count active one-year and multi-year contracts. IL from Fantrax roster (Inj Res slots) reconciled with the tracker's IL flag.
 - **V2 bounds:** drafted / called-up players 1–7 years; in-season waiver/FA pickups 1–3 years.
 - **V3 re-sign tripwire:** same-team drop → re-add in-season with a new deal **>3 years** = violation. (Annual draft allows 1–7 for anyone.)
 - **V4 duplicates:** no player on two MLB rosters.
 - **V5 coverage:** every Fantrax MLB-rostered player has an active contract event.
 - **V6 FA-year consistency:** FA years stable across migration and derivation.
 - **V7 drop penalties:** dropped players carry the penalty schedule (constitution example: 5 yrs remaining → 2.5 on drop, then 2, 1.5, 1, 0 across subsequent years; no penalty for final-year drops). Verify applied. Dropped multi-year players' dead cap must appear in the grid report.
-- **V8 minors shuttle:** a contracted player in a minors slot must still count cap years (per 4.2); log every MLB↔minors move; flag 2+ moves in 30 days for review.
+- **V8 minors shuttle:** uncontracted players may remain in minors without contract/cap entries. An official active multi-year deal remains cap-bearing while its player is in a minors slot; log each MLB↔minors move and flag 2+ moves in 30 days for review.
 - **V9 pool freeze:** no player with `real_draft_year == current season` added after `freeze_date`. (TODO: confirm whether Fantrax has a pool-lock date setting or the freeze is manual/system-side.)
 - **V10 roster max:** ≤26 MLB + ≤15 minors.
 - **V11 roster minimum (future rule):** configurable `min_mlb_roster` (default: no minimum — teams may currently carry fewer than 26). The commissioner intends to require a full 26-man roster in a future season; the system must support flipping this to an enforced minimum without code changes. → Rules committee to adopt.
 - **V12 one-day signing rule:** any player newly added to a Fantrax MLB roster (waiver/FA add, minor-league call-up) must have a matching Discord signing announcement within 1 day of the add date. No announcement in the window → the system auto-appends a 1-year SIGNED contract event (`source=system`, note="no announcement within 1 day — defaulted") and the bot posts a notice. Applies to in-season adds; draft picks are signed at draft time; trades are assumed to carry the player's existing contract (confirm with commissioner).
+- **V14 minors-to-MLB contract requirement:** compare consecutive dated roster snapshots. If a player moves from a minors slot to MLB/IL without an active official contract event effective by the promotion, emit a validation violation and alert the commissioner. An already-active contract (including a multi-year deal on a player previously demoted to minors) satisfies the requirement. Fantrax cannot prevent the move, so this is detection/remediation, not transaction blocking. Add a configurable annual per-team allowance for unsigned promotions (`unsigned_promotion_allowance`, default `0`); allowed promotions consume one allowance and are exempt from the V14 violation. The allowance does not create a multi-year contract; the V12 one-year default still applies after its normal one-day window unless the league changes that policy.
 - The tracker's hand-entered "Legal" flag becomes **computed**, not typed.
-- Acceptance: pytest fixtures for every rule, including the constitution's own worked examples.
+- Acceptance: pytest fixtures for every rule, including the constitution's own worked examples. V14 fixtures cover valid signed promotion, unsigned minors-to-MLB promotion, a contracted player demoted and promoted again, and a missing prior-day snapshot.
 
 ## Prompt 5 — HTML reports (read-only; separate pages, one site)
 
 Static Jinja2 pages on the league website (see Prompt 7 / website notes). Mobile-friendly; client-side sorting where needed; no JS framework required.
 
-- **Report 1 — Multi-year grid.** The spreadsheet-style visualization: teams × next 7 years, committed cap years per cell, drill-down to players. Includes **dead cap** — dropped multi-year players whose penalties still hit the cap. Minor leaguers live in a **separate section**, never in the contract grid (planning-only, as in the Doc today).
+- **Report 1 — Contract/cap views.** Keep multi-year commitments distinct from one-year contracts and show total cap commitment/remaining by team across the next 7 years. One-year official deals count against cap. Exact public presentation (separate counts, sections, or combined totals) is TBD with the commissioner. Includes **dead cap** for dropped multi-year players; uncontracted minors are a separate roster section, while demoted players with active multi-year deals remain in the cap grid.
 - **Report 2 — Free-agent projection.** FA class by year (from the Estimated Free Agent Class concept); multi-year expirations highlighted.
 - **Report 3 — Waiver wire.** Top 10 highest-rostered players currently on waivers (recently dropped — not free agents); fewer than 10 is fine. Source: Fantrax player-pool feed filtered by waiver status (confirm exact feed during build; fallback is the players CSV export).
 - **Report 4 — Standings.** Sortable table: every team ranked by category totals and category points (R, HR, RBI, SB, OBP / QS, K, ERA, WHIP, SVH). Click-to-sort columns.
 - **Report 5 — League history (built from scratch).** All-time leaderboard (seasons, W-L-T, championships, runner-ups, regular-season 1sts, playoff appearances) + yearly records (champion, runner-up, regular-season best, prizes). Accumulates week-to-week from the Fantrax API via the nightly pipeline; season finalized by commissioner at year end.
-- **Report 6 — Salary cap tracker (built from scratch).** Per team per season: base 78 + IL relief ± cap trades = effective cap; committed vs remaining. Starts at 78 for everyone; Discord-announced trades accumulate.
+- **Report 6 — Salary cap tracker (built from scratch).** Per team per season: 78 base + IL relief ± prospective cap trades = effective cap; committed vs remaining, including one-year contracts. For the next seven years, initialize every team at 78 with no prior-season trade carryover; add future reviewed trades prospectively.
 - Supporting views: contract ledger (audit trail), validation report, transaction log.
-- Scope rule (per commissioner): contract views cover multi-year players only; 1-year/expiring players live in the FA projection.
+- Scope rule (per commissioner): cap calculations and internal roster summaries include active one-year and multi-year official contracts. Reports must expose each team's one-year player count and multi-year commitments so total cap space can be computed. The exact public presentation (separate counts, sections, or combined totals) is TBD; do not omit one-year players from cap accounting.
 - Distribution: Discord bot posts the report link after each regeneration (link unfurl); archive copy to Google Drive.
 - Acceptance: full site builds from a fixture DB.
 
@@ -85,8 +86,8 @@ Static Jinja2 pages on the league website (see Prompt 7 / website notes). Mobile
 
 ## Prompt 7 — Nightly pipeline, operations & website
 
-- Orchestration: pull Fantrax → snapshot → validate → regenerate HTML → commit snapshots + HTML → push.
-- Scheduling: cron/launchd on the laptop; idempotent runs; run log; Discord DM to the commissioner on validation failures.
+- Orchestration: pull Fantrax → take a dated roster snapshot → detect roster-level transitions → validate → regenerate HTML → commit snapshots + HTML → push.
+- Scheduling: run roster snapshots daily via cron/launchd on the laptop; idempotent runs; retain each dated snapshot; report missing-day gaps; run log; Discord DM to the commissioner on validation failures. Daily deltas support V14 minors-to-MLB promotion checks, but cannot prevent Fantrax roster moves.
 - **Website (GitHub Pages):** free, no server. Setup: repo Settings → Pages → deploy from branch (`main`, `/docs` folder or `gh-pages` branch); the pipeline's push already regenerates the site — each push redeploys automatically. Address `https://pitlockm.github.io/magicmatt_fantasysports/` (or a custom domain via `CNAME` + DNS, optional). The repo is public so the site is public — fine for a fantasy league; the build must strip secrets (no tokens in HTML). Effort: ~15 minutes once; the pipeline does the rest forever. Alternatives (Cloudflare Pages, Netlify) are also free but unnecessary for v1.
 - Docs: README (setup, `.env`, first backfill), OPERATIONS.md (common tasks), LEAGUE_CALENDAR.md.
 - Acceptance: end-to-end dry run on fixture data.

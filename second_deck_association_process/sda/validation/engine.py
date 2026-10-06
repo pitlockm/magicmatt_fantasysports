@@ -241,7 +241,6 @@ def _load_state(database_path: Path, season: int) -> dict[str, Any]:
                    END), 0)
                    FROM contract_events
                    WHERE team_id = ? AND event_type = 'DROPPED'
-                                         AND roster_level <> 'minors'
                      AND ? >= YEAR(ts) AND ? < fa_year""",
                 [season, season, team_id, season, season],
             ).fetchone()[0]
@@ -345,7 +344,6 @@ def _apply_one_day_defaults(
     existing_defaults = {
         (str(event["team_id"]), str(event["fantrax_id"]), event["ts"].date())
         for event in state["events"]
-        if str(event.get("event_type", "")).upper() == "DEFAULTED_1YR"
     }
     existing_contracts = set(state["active_contract_ids"])
     for team_id, fantrax_id, added_at, level in state["roster_additions"]:

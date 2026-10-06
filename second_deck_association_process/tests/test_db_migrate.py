@@ -5,17 +5,21 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from sda.db.connection import open_database
 from sda.db.migrate import (
     REQUIRED_TABS,
     MigrationEvent,
     MigrationPlan,
+    _fuzzy_player_match,
     _reconcile_cap_sanity,
     build_migration_plan,
     commit_migration,
     find_tab_files,
 )
 from sda.db.schema import initialize_database
+from sda.fantrax.normalize import normalize_alias
 
 
 HEADER = [
@@ -45,6 +49,10 @@ def _build_fixture(
     dropped: str = "No",
     penalty_years: str = "",
     drop_year: str = "",
+    fa_year: str = "2028",
+    contract_years: str = "2",
+    sheet_player_name: str = "Player One",
+    db_player_name: str = "Player One",
 ) -> tuple[Path, Path, Path]:
     source_dir = root / "exports"
     data_dir = root / "data"
@@ -57,12 +65,14 @@ def _build_fixture(
                 [f"team-{index}", f"Team {index}", tab],
             )
         connection.execute(
-            "INSERT INTO players (fantrax_id, name) VALUES ('player-1', 'Player One')"
+            "INSERT INTO players (fantrax_id, name) VALUES (?, ?)",
+            ["player-1", db_player_name],
         )
 
     alias_path = data_dir / "player_aliases.json"
     alias_path.parent.mkdir(parents=True, exist_ok=True)
-    alias_path.write_text(json.dumps({"player one": "player-1"}), encoding="utf-8")
+    aliases = {normalize_alias(db_player_name): "player-1"} if db_player_name == sheet_player_name else {}
+    alias_path.write_text(json.dumps(aliases), encoding="utf-8")
 
     for tab in REQUIRED_TABS[:10]:
         path = source_dir / f"SDA - Major League Contract Tracker (March 19 Snapshot) - {tab}.csv"
@@ -70,14 +80,14 @@ def _build_fixture(
         if tab == "Boe":
             rows.append(
                 [
-                    "Player One",
+                    sheet_player_name,
                     "OF",
-                    "2028",
+                    fa_year,
                     move_type,
                     "No",
                     dropped,
                     "2026",
-                    "2",
+                    contract_years,
                     penalty_years,
                     drop_year,
                 ]
@@ -175,6 +185,172 @@ def test_commit_rejects_planned_minors_signing(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="cannot sign or extend a minor-league player"):
         commit_migration(plan, database_path)
+
+
+def test_default_drop_year_derives_constitution_penalty_without_editing_csv(tmp_path: Path) -> None:
+    """Use the commissioner-provided year and half-remaining-years schedule for a missing penalty."""
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="Draft",
+        dropped="Yes",
+    )
+    plan = build_migration_plan(
+        source_dir,
+        database_path,
+        data_dir=data_dir,
+        season=2027,
+        drop_year_default=2026,
+    )
+
+    dropped = next(event for event in plan.events if event.event_type == "DROPPED")
+    assert dropped.ts == datetime(2026, 1, 1)
+    assert dropped.years == 1.0
+    assert "drop_year_default=2026" in dropped.note
+    assert "drop_penalty=constitution half remaining years" in dropped.note
+    assert not any("Dropped=Yes but penalty" in item.reason for item in plan.exceptions)
+    assert plan.can_commit
+
+
+def test_default_drop_year_has_no_penalty_for_final_contract_year(tmp_path: Path) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="Draft",
+        dropped="Yes",
+        fa_year="2027",
+        contract_years="1",
+    )
+
+    plan = build_migration_plan(
+        source_dir,
+        database_path,
+        data_dir=data_dir,
+        season=2027,
+        drop_year_default=2026,
+    )
+
+    dropped_event = next(event for event in plan.events if event.event_type == "DROPPED")
+    assert dropped_event.years == 0.0
+    assert "drop_year_default=2026" in dropped_event.note
+
+
+def test_explicit_drop_year_and_penalty_override_default(tmp_path: Path) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="Draft",
+        dropped="Yes",
+        penalty_years="0.5",
+        drop_year="2025",
+    )
+
+    plan = build_migration_plan(
+        source_dir,
+        database_path,
+        data_dir=data_dir,
+        season=2027,
+        drop_year_default=2026,
+    )
+
+    dropped_event = next(event for event in plan.events if event.event_type == "DROPPED")
+    assert dropped_event.ts == datetime(2025, 1, 1)
+    assert dropped_event.years == 0.5
+    assert "drop_year_default=" not in dropped_event.note
+
+
+def test_drop_year_override_is_part_of_migration_batch_id(tmp_path: Path) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="Draft",
+        dropped="Yes",
+    )
+    first = build_migration_plan(
+        source_dir, database_path, data_dir=data_dir, season=2027, drop_year_default=2026
+    )
+    second = build_migration_plan(
+        source_dir, database_path, data_dir=data_dir, season=2027, drop_year_default=2025
+    )
+
+    assert first.batch_id != second.batch_id
+
+
+def test_fuzzy_match_resolves_bischette_to_bichette_and_audits_it(tmp_path: Path) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="Draft",
+        sheet_player_name="Bo Bischette",
+        db_player_name="Bichette, Bo",
+    )
+
+    plan = build_migration_plan(source_dir, database_path, data_dir=data_dir, season=2027)
+
+    signed_event = next(event for event in plan.events if event.event_type == "SIGNED")
+    assert signed_event.fantrax_id == "player-1"
+    assert "player_match=fuzzy" in signed_event.note
+    assert any("Bo Bischette -> Bichette, Bo" in match for match in plan.fuzzy_matches)
+
+
+def test_fuzzy_match_can_be_limited_to_current_team_roster() -> None:
+    players = {
+        "player-1": "Bichette, Bo",
+        "player-2": "Bichette, Bo Jr.",
+    }
+
+    match = _fuzzy_player_match("Bo Bischette", players, allowed_ids={"player-1"})
+
+    assert match is not None
+    assert match[0] == "player-1"
+
+
+def test_blank_move_type_up_to_three_years_is_waiver_and_fa_year_is_derived(tmp_path: Path) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="",
+        contract_years="3",
+        fa_year="2035",
+    )
+
+    plan = build_migration_plan(source_dir, database_path, data_dir=data_dir, season=2027)
+
+    signed_event = next(event for event in plan.events if event.event_type == "SIGNED")
+    assert signed_event.fa_year == 2029
+    assert "acquisition_type=waiver" in signed_event.note
+    assert "ignored_sheet_fa_year=2035" in signed_event.note
+    assert not any("Move Type is blank" in item.reason for item in plan.exceptions)
+
+
+def test_blank_move_type_over_three_years_remains_an_exception(tmp_path: Path) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="",
+        contract_years="4",
+    )
+
+    plan = build_migration_plan(source_dir, database_path, data_dir=data_dir, season=2027)
+
+    assert any("blank and contract exceeds" in item.reason for item in plan.exceptions)
+
+
+@pytest.mark.parametrize(("contract_years", "expected_exception"), [("3", False), ("4", True)])
+def test_unrostered_active_player_is_limited_to_three_years(
+    tmp_path: Path,
+    contract_years: str,
+    expected_exception: bool,
+) -> None:
+    source_dir, database_path, data_dir = _build_fixture(
+        tmp_path,
+        move_type="Draft",
+        contract_years=contract_years,
+        sheet_player_name="Xander Bogaerts",
+        db_player_name="Bogaerts, Xander",
+    )
+    roster_path = data_dir / "raw" / "2026-03-19" / "team_rosters.json"
+    payload = json.loads(roster_path.read_text(encoding="utf-8"))
+    payload["rosters"]["team-0"]["rosterItems"] = []
+    roster_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    plan = build_migration_plan(source_dir, database_path, data_dir=data_dir, season=2027)
+
+    violations = [item for item in plan.exceptions if "absent from the current Fantrax roster" in item.reason]
+    assert bool(violations) is expected_exception
 
 
 def test_commit_is_idempotent_by_batch_marker(tmp_path: Path) -> None:

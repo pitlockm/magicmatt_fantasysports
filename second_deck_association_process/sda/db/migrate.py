@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import difflib
 import hashlib
 import json
 import logging
@@ -92,6 +93,9 @@ class MigrationPlan:
     minors_audit: list[str] = field(default_factory=list)
     il_mismatches: list[str] = field(default_factory=list)
     player_positions: dict[str, str] = field(default_factory=dict)
+    fuzzy_matches: list[str] = field(default_factory=list)
+    sheet_rows_by_player: dict[tuple[str, str], tuple[str, int, str]] = field(default_factory=dict)
+    fantrax_rostered_players: set[tuple[str, str]] = field(default_factory=set)
 
     @property
     def can_commit(self) -> bool:
@@ -128,6 +132,14 @@ class MigrationPlan:
             lines.append("    None.")
         if self.roster_audit_unavailable:
             lines.append(f"  Roster comparison unavailable: {self.roster_audit_unavailable}")
+        lines.extend(["", "HIGH-CONFIDENCE FUZZY MATCHES (AUTO-RESOLVED)"])
+        lines.extend(f"  {item}" for item in self.fuzzy_matches)
+        if not self.fuzzy_matches:
+            lines.append("  None.")
+        lines.extend(["", "HIGH-CONFIDENCE FUZZY PLAYER MATCHES (AUTO-RESOLVED)"])
+        lines.extend(f"  {item}" for item in self.fuzzy_matches)
+        if not self.fuzzy_matches:
+            lines.append("  None.")
         lines.extend(["", "CAP SANITY (78 YEARS + FANTRAX IL RELIEF)"])
         lines.extend(f"  {item}" for item in self.cap_report)
         if not self.cap_report:
@@ -178,13 +190,16 @@ def build_migration_plan(
     data_dir: Path = DEFAULT_DATA_DIR,
     season: int | None = None,
     team_map: dict[str, str] | None = None,
+    drop_year_default: int | None = None,
 ) -> MigrationPlan:
     """Parse exports, resolve identities, and build a read-only reconciliation plan."""
     source_dir = Path(source_dir)
     database_path = Path(database_path)
     data_dir = Path(data_dir)
     tabs, missing_tabs = find_tab_files(source_dir)
-    batch_id = _batch_id(tabs.values())
+    if drop_year_default is not None and not 1900 <= drop_year_default <= 2199:
+        raise ValueError("drop_year_default must be a valid four-digit year")
+    batch_id = _batch_id(tabs.values(), f"drop_year_default={drop_year_default}")
     if season is None:
         season = _configured_season(database_path)
     plan = MigrationPlan(batch_id=batch_id, season=season, missing_tabs=missing_tabs)
@@ -196,10 +211,11 @@ def build_migration_plan(
 
     with open_database(database_path, read_only=True) as connection:
         team_rows = connection.execute("SELECT team_id, team_name, manager FROM teams").fetchall()
-        player_ids = {
-            str(row[0])
-            for row in connection.execute("SELECT fantrax_id FROM players").fetchall()
+        player_names_by_id = {
+            str(player_id): str(name)
+            for player_id, name in connection.execute("SELECT fantrax_id, name FROM players").fetchall()
         }
+        player_ids = set(player_names_by_id)
     alias_path = data_dir / "player_aliases.json"
     aliases = load_aliases(alias_path)
     team_lookup = _team_lookup(team_rows, team_map or {})
@@ -226,6 +242,14 @@ def build_migration_plan(
                 continue
             plan.sheet_player_rows += 1
             fantrax_id = inverse_aliases.get(normalize_alias(player_name))
+            fuzzy_score: float | None = None
+            if not fantrax_id or fantrax_id not in player_ids:
+                team_player_ids = _team_roster_player_ids(data_dir, mapped_team)
+                fuzzy_match = _fuzzy_player_match(player_name, player_names_by_id, allowed_ids=team_player_ids or None)
+                if fuzzy_match is None and team_player_ids:
+                    fuzzy_match = _fuzzy_player_match(player_name, player_names_by_id)
+                if fuzzy_match is not None:
+                    fantrax_id, fuzzy_score = fuzzy_match
             if not fantrax_id or fantrax_id not in player_ids:
                 plan.exceptions.append(
                     MigrationException(tab, row_number, player_name, "No unambiguous Fantrax player ID alias")
@@ -233,38 +257,77 @@ def build_migration_plan(
                 continue
             plan.matched_player_rows += 1
             matched_sheet_players.add((mapped_team, fantrax_id))
+            plan.sheet_rows_by_player[(mapped_team, fantrax_id)] = (tab, row_number, player_name)
+            if fuzzy_score is not None:
+                plan.fuzzy_matches.append(
+                    f"{tab} row {row_number}: {player_name} -> {player_names_by_id[fantrax_id]} "
+                    f"[{fantrax_id}], similarity={fuzzy_score:.3f}; verify spelling"
+                )
             position = _value(record, "pos")
             if position:
                 plan.player_positions[fantrax_id] = position
 
-            move_type = _value(record, "move type")
-            if not move_type or move_type.casefold() == "null":
-                plan.exceptions.append(MigrationException(tab, row_number, player_name, "Move Type is blank/NULL"))
-                continue
-            roster_level = "minors" if _normalize_header(move_type) in MINOR_MOVE_TYPES else "MLB"
+            source_move_type = _value(record, "move type")
+            normalized_move_type = _normalize_header(source_move_type)
+            roster_level = "minors" if normalized_move_type in MINOR_MOVE_TYPES else "MLB"
             if roster_level == "minors":
-                audit = f"{tab} row {row_number}: {player_name} [{fantrax_id}], Move Type={move_type}; planning placeholder, no contract events"
+                audit = f"{tab} row {row_number}: {player_name} [{fantrax_id}], Move Type={source_move_type}; planning placeholder, no contract events"
                 if _is_yes(_value(record, "dropped", "dropped yes")):
                     audit += "; Dropped=Yes ignored because no contract existed"
                 plan.minors_audit.append(audit)
                 continue
 
-            fa_year = _parse_year(_value(record, "free agent year"))
             years = _parse_number(_value(record, "player contract years", "years", "contract years"))
             added_year = _parse_year(_value(record, "year added"))
-            if fa_year is None:
-                plan.exceptions.append(MigrationException(tab, row_number, player_name, "Invalid or missing Free Agent Year"))
-                continue
             if years is None or years < 0:
                 plan.exceptions.append(MigrationException(tab, row_number, player_name, "Invalid or missing Player Contract Years"))
+                continue
+            if not years.is_integer():
+                plan.exceptions.append(
+                    MigrationException(tab, row_number, player_name, "Contract years must be a whole number to derive FA year")
+                )
                 continue
             if added_year is None:
                 plan.exceptions.append(MigrationException(tab, row_number, player_name, "Invalid or missing Year added"))
                 continue
+            blank_move_type = not source_move_type or source_move_type.casefold() == "null"
+            if blank_move_type and not 1 <= years <= 3:
+                plan.exceptions.append(
+                    MigrationException(
+                        tab, row_number, player_name,
+                        "Move Type is blank and contract exceeds the 1-3 year waiver/FA limit",
+                    )
+                )
+                continue
+            if blank_move_type:
+                acquisition_type = "waiver"
+                move_type = "Waiver (assumed: blank Move Type, <=3 years)"
+            elif "promot" in normalized_move_type or "call up" in normalized_move_type or "called up" in normalized_move_type:
+                acquisition_type = "called_up"
+                move_type = source_move_type
+            elif "waiver" in normalized_move_type or "free agent" in normalized_move_type or "free agent" in normalized_move_type:
+                acquisition_type = "waiver"
+                move_type = source_move_type
+            else:
+                acquisition_type = "drafted"
+                move_type = source_move_type
+
+            fa_year = added_year + int(years)
+            sheet_fa_year = _parse_year(_value(record, "free agent year"))
 
             is_il = _is_yes(_value(record, "il", "il yes"))
             dropped = _is_yes(_value(record, "dropped", "dropped yes"))
-            note_parts = [f"migrated from {tab}", f"move_type={move_type}", f"migration_batch={batch_id}"]
+            note_parts = [
+                f"migrated from {tab}",
+                f"move_type={move_type}",
+                f"acquisition_type={acquisition_type}",
+                f"fa_year={added_year}+{int(years)}={fa_year}",
+                f"migration_batch={batch_id}",
+            ]
+            if fuzzy_score is not None:
+                note_parts.append(f"player_match=fuzzy; similarity={fuzzy_score:.3f}")
+            if sheet_fa_year is not None and sheet_fa_year != fa_year:
+                note_parts.append(f"ignored_sheet_fa_year={sheet_fa_year}")
             if is_il:
                 note_parts.append("IL=Yes; cross-check Fantrax Inj Res slot")
             note = "; ".join(note_parts)
@@ -273,7 +336,7 @@ def build_migration_plan(
                 ts=datetime(added_year, 1, 1),
                 team_id=mapped_team,
                 fantrax_id=fantrax_id,
-                event_type="SIGNED",
+                event_type="CALLED_UP" if acquisition_type == "called_up" else "SIGNED",
                 years=years,
                 fa_year=fa_year,
                 roster_level=roster_level,
@@ -287,6 +350,14 @@ def build_migration_plan(
                     _value(record, "drop penalty years", "penalty years", "drop years")
                 )
                 drop_year = _parse_year(_value(record, "drop year", "year dropped"))
+                if drop_year is None and drop_year_default is not None:
+                    drop_year = drop_year_default
+                penalty_calculated = False
+                if penalty_years is None and drop_year is not None:
+                    remaining_years = fa_year - drop_year
+                    if remaining_years >= 0:
+                        penalty_years = 0.0 if remaining_years <= 1 else remaining_years / 2
+                        penalty_calculated = True
                 if penalty_years is None or penalty_years < 0:
                     plan.exceptions.append(
                         MigrationException(tab, row_number, player_name, "Dropped=Yes but penalty years are missing/invalid")
@@ -305,13 +376,52 @@ def build_migration_plan(
                     years=penalty_years,
                     fa_year=fa_year,
                     roster_level=roster_level,
-                    note=f"migrated from {tab}; dropped; migration_batch={batch_id}",
+                    note=(
+                        f"migrated from {tab}; dropped; migration_batch={batch_id}; "
+                        + (
+                            f"drop_year_default={drop_year_default}; "
+                            if penalty_calculated and drop_year_default is not None
+                            else ""
+                        )
+                        + (
+                            "drop_penalty=constitution half remaining years"
+                            if penalty_calculated
+                            else "drop_penalty=from sheet"
+                        )
+                    ),
                     migration_key=migration_key + ":dropped",
                     sheet_il=is_il,
                 )
                 plan.events.append(drop_event)
 
     fantrax_il_players = _reconcile_rosters(plan, data_dir, matched_sheet_players, team_name_by_id)
+    for key, (tab, row_number, player_name) in plan.sheet_rows_by_player.items():
+        if key in plan.fantrax_rostered_players:
+            continue
+        signing = next(
+            (
+                event for event in plan.events
+                if event.team_id == key[0] and event.fantrax_id == key[1]
+                and event.event_type in {"SIGNED", "CALLED_UP"}
+            ),
+            None,
+        )
+        if signing is None or signing.years <= 3 or signing.fa_year is None or signing.fa_year <= season:
+            continue
+        if any(
+            event.team_id == key[0] and event.fantrax_id == key[1]
+            and event.event_type == "DROPPED"
+            for event in plan.events
+        ):
+            continue
+        plan.exceptions.append(
+            MigrationException(
+                tab,
+                row_number,
+                player_name,
+                "Sheet player is absent from the current Fantrax roster and has an active contract over 3 years",
+            )
+        )
     _annotate_il_cross_checks(plan, fantrax_il_players)
     _reconcile_cap_sanity(plan, team_name_by_id)
     return plan
@@ -412,7 +522,6 @@ def _read_team_csv(path: Path) -> tuple[list[str] | None, list[tuple[int, dict[s
             return header, records
     return None, []
 
-
 def _read_csv(path: Path) -> list[list[str]]:
     with path.open(encoding="utf-8-sig", newline="") as csv_file:
         return list(csv.reader(csv_file))
@@ -465,11 +574,68 @@ def _is_yes(value: str) -> bool:
     return value.strip().casefold() in {"yes", "y", "true", "1"}
 
 
-def _batch_id(paths: Any) -> str:
+def _fuzzy_player_match(
+    sheet_name: str,
+    player_names_by_id: dict[str, str],
+    *,
+    allowed_ids: set[str] | None = None,
+) -> tuple[str, float] | None:
+    """Auto-resolve only a very close, uniquely separated player-name match."""
+    if allowed_ids is not None:
+        filtered = {player_id: name for player_id, name in player_names_by_id.items() if player_id in allowed_ids}
+        if not filtered:
+            return None
+        player_names_by_id = filtered
+    stripped_name = re.sub(r"\s*\([^)]*\)", "", sheet_name).strip()
+    normalized_name = normalize_alias(stripped_name)
+    if not normalized_name:
+        return None
+    source_forms = {normalized_name, " ".join(sorted(normalized_name.split()))}
+    scores_by_id: dict[str, float] = {}
+    for player_id, player_name in player_names_by_id.items():
+        normalized_player = normalize_alias(re.sub(r"\s*\([^)]*\)", "", player_name).strip())
+        player_forms = {normalized_player, " ".join(sorted(normalized_player.split()))}
+        score = max(
+            difflib.SequenceMatcher(None, source, candidate).ratio()
+            for source in source_forms
+            for candidate in player_forms
+        )
+        scores_by_id[player_id] = score
+    ranked = sorted(scores_by_id.items(), key=lambda item: item[1], reverse=True)
+    if not ranked:
+        return None
+    best_id, best_score = ranked[0]
+    second_score = next((score for player_id, score in ranked[1:] if player_id != best_id), 0.0)
+    if best_score >= 0.90 and best_score - second_score >= 0.08:
+        return best_id, best_score
+    return None
+
+
+def _team_roster_player_ids(data_dir: Path, team_id: str | None) -> set[str]:
+    """Return rostered Fantrax player IDs for a specific team, if a team snapshot is available."""
+    if not team_id:
+        return set()
+    try:
+        payload = load_snapshot("team_rosters", root=Path(data_dir) / "raw")
+    except FileNotFoundError:
+        return set()
+    rosters = normalize_rosters(payload)
+    team_roster = rosters.get(team_id, {})
+    players: set[str] = set()
+    for roster_key in ("mlb_roster", "minors_roster"):
+        for player in team_roster.get(roster_key, []):
+            player_id = str(player.get("id", "")).strip()
+            if player_id:
+                players.add(player_id)
+    return players
+
+
+def _batch_id(paths: Any, settings: str = "") -> str:
     digest = hashlib.sha256()
     for path in sorted((Path(path) for path in paths), key=lambda item: str(item)):
         digest.update(path.name.encode("utf-8"))
         digest.update(path.read_bytes())
+    digest.update(settings.encode("utf-8"))
     return digest.hexdigest()[:16]
 
 
@@ -515,6 +681,7 @@ def _reconcile_rosters(
                 fantrax_il_players.add(player_key)
         for player in roster["minors_roster"]:
             fantrax_all_players.add((team_id, str(player["id"])))
+    plan.fantrax_rostered_players = fantrax_all_players
     missing_team_ids = set(team_name_by_id) - set(rosters)
     for team_id in sorted(missing_team_ids):
         plan.cap_errors.append(
@@ -608,6 +775,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     parser.add_argument("--season", type=int, help="Season for cap reconciliation; defaults to DB/config season.")
     parser.add_argument("--team-map", type=Path, help="JSON object mapping Sheet tab labels to Fantrax team IDs.")
+    parser.add_argument(
+        "--drop-year-default",
+        type=int,
+        help=(
+            "Commissioner-confirmed drop year used when a dropped row has no "
+            "drop-year field; missing penalties are derived from fa_year."
+        ),
+    )
     parser.add_argument("--commit", action="store_true", help="Write only after a clean reconciliation; default is dry run.")
     return parser
 
@@ -634,6 +809,7 @@ def main(argv: list[str] | None = None) -> int:
             data_dir=args.data_dir,
             season=args.season,
             team_map=explicit_map,
+            drop_year_default=args.drop_year_default,
         )
     except (OSError, ValueError, csv.Error) as error:
         LOGGER.error("Migration preflight failed: %s", error)

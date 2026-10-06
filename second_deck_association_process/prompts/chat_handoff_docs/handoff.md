@@ -1,12 +1,14 @@
 # Prompt Implementation Handoff
 
-**Status date:** 2026-10-04
-**Branch:** `main`, synchronized with `origin/main` at prompt baseline `e876f52`
-**Implementation state:** Local changes are uncommitted. No live Discord connection, Apps Script deployment, production DB migration, or pipeline Git publish has been run.
+**Status date:** 2026-10-06
+**Branch:** `main`, based on `origin/main` at `9858224` before the migration updates in this handoff
+**Implementation state:** Migration matching/rule updates, migration tests, and the manual-resolution worksheet are committed on `main`. The production migration remains blocked; no contract events have been committed, and no live Discord connection, Apps Script deployment, or pipeline Git publish has been run.
 
 ## Summary
 
 Implemented the current Forms → Discord webhook → commishbot intake model and its supporting report/pipeline data contract. Google Forms are the only manager input for long-term signings and cap trades. The Apps Script relay emits strict two-line messages with a UUID `ref`, acquisition type where applicable, and UTC submission timestamp. The commishbot parses those relays, validates proposals, queues them for commissioner approval, and records approved events with Form provenance.
+
+The one-time contract migration has been extended with conservative fuzzy player matching scoped first to the current Fantrax roster of the mapped owner/team, before a global fuzzy fallback. It also supports the commissioner-confirmed 2026 default drop year, derives FA year from year added plus contract duration, treats blank Move Type as waiver only for 1–3 year contracts, and flags active unrostered contracts over three years. A manual-resolution worksheet is available at `data/manual_contract_resolution.md`.
 
 ## Implementation Changes
 
@@ -46,7 +48,10 @@ Added `sda/forms/` with:
 
 ## Verification
 
-- Python suite: **82 passed**.
+- Python suite: **92 passed** after the migration matching updates.
+- Latest migration dry-run (with local team/alias mappings and the external replacement CSVs): **534/554** player rows matched; **24 exceptions**; **0 cap errors**; **423 planned events**; commit gate remains blocked. Exceptions include unresolved player aliases, two invalid contract-year rows, one blank Move Type over three years, and one active contract over three years absent from the current roster.
+- The review worksheet records the 24 exception rows and the information needed to resolve each. Leodalis De Vries is noted as dropped; this note has not yet been incorporated into a clean reconciliation.
+- The dry-run did not commit events. No production contract-event migration has been performed.
 - Apps Script pure validation and exact relay-format tests passed under macOS JavaScriptCore (`osascript -l JavaScript`).
 - `python -m sda.discord_bot.commish --help` and `python -m sda.pipeline --help` work.
 - `git diff --check` passed at the last verification.
@@ -62,4 +67,4 @@ Added `sda/forms/` with:
 
 ## Worktree Notes
 
-The implementation files are still local and uncommitted. Previously uncommitted README, schema/snapshot, and DB-test edits were preserved. Unrelated `.DS_Store` and `__pycache__` artifacts remain untracked and were not modified. No production migration or external publish was attempted.
+Migration code and tests are tracked source changes. `data/manual_contract_resolution.md` is normally excluded by `data/*` and must be explicitly included for this handoff. Player aliases, the team map, database, and generated snapshot CSVs are local data under the same ignore rule and are not part of the source publication. Unrelated `.DS_Store` and `__pycache__` artifacts remain untracked and are not included. The migration is not ready to write to the production ledger until all exceptions are resolved and a fresh dry-run opens the gate.

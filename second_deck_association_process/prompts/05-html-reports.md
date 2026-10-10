@@ -6,22 +6,26 @@ Copy everything below into Claude Code. Run this after Prompts 2 and 4. Build in
 
 ## Goal
 
-Generate a **static HTML site** (Jinja2 templates, no JS framework, no backend) that replaces the Google Sheet as what league members look at. Six separate report pages plus supporting views, all built from the DuckDB ledger + Fantrax snapshots. Output goes to `second_deck_association_process/site/` (gitignored build dir; the pipeline commits it for GitHub Pages).
+Generate a **static HTML site** (Jinja2 templates, no JS framework, no backend) that replaces the Google Sheet as what league members look at. Five primary report pages plus supporting views, all built from the DuckDB ledger + Fantrax snapshots. Output goes to `second_deck_association_process/site/` (gitignored build dir; the pipeline commits it for GitHub Pages).
 
-Design: clean, mobile-friendly, one shared CSS file, top nav linking the six reports. Client-side table sorting (tiny vanilla-JS snippet) where noted.
+Design: clean, mobile-friendly, one shared CSS file, top nav linking the five primary reports. Client-side table sorting/filtering (small vanilla-JS utilities) where noted.
 
-## The six reports
+## The five primary reports
 
-### Report 1 — Multi-year grid (the centerpiece)
-Reproduces the spreadsheet's visualization: **teams × the next 7 seasons**, each cell showing committed cap years, with drill-down to the players behind the number. Requirements:
+### Report 1 — Contracts and cap grid (the centerpiece)
+Reproduces the spreadsheet's visualization: **teams × the next 7 seasons**, each cell showing cap totals with expandable details. Merge the old Contracts grid and Salary Cap Tracker; do not render a separate cap-tracker page. Requirements:
 - Includes **dead cap**: dropped multi-year players whose penalties still hit the cap, shown as a separate line within each cell (e.g. `64.5 + 2.5 dead`).
-- **Minor leaguers are a separate section below the grid** — never inside the contract area. Each minor leaguer shows: name, age (from `players.birthdate`), career MLB AB / IP (from `players.career_ab` / `career_ip`), and owning team — so managers can project MLB arrival. Unknown bio fields render as "—".
-- Per the commissioner: contract views cover **multi-year players only**; 1-year/expiring players don't get future rows.
+- Expand a nonzero dead-cap line to list the dropped player, position, remaining dead-cap amount, and FA year. An empty dead-cap list remains explicit.
+- Show remaining cap, effective cap, IL relief, and cap-trade adjustment in the cell.
+- Provide expandable lists for multi-year contracts, one-year contracts, cap-trade events, and injured-list players. Current-season IL names come from the saved roster snapshot; future IL rosters are not projected and must be labeled unavailable.
+- One-year official deals count toward cap even though they are not migrated from the previous season.
+- **Minor leaguers are a separate section below the grid** — never inside the contract area. Group them in one expandable roster per team, listing each player's name and position from the current saved Fantrax snapshot. Age-by-year is deferred until bio coverage is verified/populated; when added, derive age from birthdate as of July 1 of each grid year. Future roster ownership is not projected.
 - Each team's row also shows remaining space: `78 + IL relief − team_cap_committed(team, season)` (the ledger function already nets cap-trade adjustments).
 
 ### Report 2 — Free-agent projection
-FA class by year (2027, 2028, …): which multi-year deals expire when, grouped by team, expiring stars highlighted. This is where 1-year/expiring players live.
-- **FA-year formula (binding):** `fa_year` on the contract event is the *first year the player is a free agent* = signing season + contract years (no minus one). A 3-year deal signed in 2026 means team control for 26/27/28 → "signed through 2028 — FA 2029". Display both halves: "through {fa_year − 1}" and "FA in {fa_year}".
+One long, sortable/filterable table across FA years, with player, team, position, age, latest ADP, FA year, and last-completed-season stats. Hitters show R, OBP, HR, SB; pitchers show K, ERA, WHIP, QS, SV/Holds. Non-applicable cells are blank. Remove redundant "Signed through" and "Deal" columns. Filters: FA year, position, team, and text search. Display the ADP snapshot date and completed-stats season; missing data renders as "—".
+- **Stats source:** join by Fantrax player ID. Use a documented Fantrax API source if one is confirmed; otherwise accept an official Fantrax stats CSV with a Fantrax ID column. Select the latest completed season not after the requested stats season. Current ADP is a separate Fantrax `getAdp` snapshot and must not be substituted for historical stats.
+- **FA-year formula (binding):** `fa_year` on the contract event is the *first year the player is a free agent* = signing season + contract years (no minus one). A 3-year deal signed in 2026 means team control for 26/27/28 → FA 2029.
 
 ### Report 3 — Waiver wire
 Top 10 **highest-rostered players currently on waivers** (recently dropped — not free agents). Fewer than 10 is fine; show what's there. Columns: player, position, dropped-by team, days on waivers, roster%.
@@ -35,8 +39,7 @@ Two sections, both from the history tables (Prompt 2 patch) — never from the o
 - **All-time leaderboard**: one row per team — seasons played, all-time W-L-T, championships, runner-ups, regular-season 1sts, playoff appearances (from the `team_all_time_history` view). Sortable.
 - **Yearly records**: one row per season — champion, runner-up, regular-season best record, prize winnings (from `league_history` + `team_season_history`).
 
-### Report 6 — Salary cap tracker (built from scratch)
-Replaces the old "Salary Cap Tracking" tab — computed, never hand-typed. Per team per season: base cap (78), + IL relief (# players in Fantrax IL slots), ± net cap trades, = effective cap; committed years (active + dead cap); remaining space. Historical cap trades are NOT imported — tracking starts at 78 for everyone, and Discord-announced trades (Prompt 6) accumulate from there.
+The old Report 6 — Salary cap tracker — is merged into Report 1 and is not a separate page.
 
 ## Supporting views
 - **Contract ledger**: the append-only event log, newest first — the audit trail.
@@ -46,7 +49,7 @@ Replaces the old "Salary Cap Tracking" tab — computed, never hand-typed. Per t
 ## What to build
 
 - `sda/reports/build.py` — `build_site(season)` → renders everything into `site/`. One function per report (`report_multiyear_grid(...)`, …), each taking plain data structures (not DB handles) so they're testable.
-- `sda/reports/templates/` — one Jinja2 template per page + `base.html` (nav, CSS link).
+- `sda/reports/templates/` — one Jinja2 template per primary/audit page + `base.html` (nav, CSS link); no separate cap-tracker page.
 - `sda/reports/static/style.css` — single stylesheet, mobile-first.
 - CLI: `python -m sda.reports --season 2027`.
 
@@ -57,8 +60,8 @@ Replaces the old "Salary Cap Tracking" tab — computed, never hand-typed. Per t
 
 ## Acceptance criteria
 
-- `python -m sda.reports --season 2027` builds the full site from a **fixture DB** (ship one under `tests/fixtures/`) — all six reports + supporting views render with no errors.
+- `python -m sda.reports --season 2027` builds the full site from a **fixture DB** (ship one under `tests/fixtures/`) — all five primary reports + supporting views render with no errors.
 - The multi-year grid fixture must include: a dead-cap case, a cap-trade adjustment, and an IL-relief case, all visibly correct in the output.
 - The history fixture must include 2+ seasons so the all-time leaderboard aggregates visibly (championships, runner-ups, playoff appearances).
-- The cap-tracker fixture must show a team with a cap trade and a team with IL relief, with remaining space computed correctly.
+- The Contracts grid fixture must show expandable one-year/multi-year deals, a dropped player with dead cap and position, cap trades, current-season IL players, and team-grouped minors with position and per-year age, with effective cap, committed cap, and remaining space computed correctly.
 - No-sorcery test: grep the built site for the secret values — must find nothing.

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="section-intro">
-  <p>Contract-year commitments by team. Active multi-year deals are expandable; dead cap is separated in each season cell.</p>
-  <span class="section-tag">7 SEASONS / LEDGER-DERIVED</span>
+  <p>Annual cap position combines official contract commitments, scheduled dead cap, base cap, injured-list relief, and cap-trade adjustments. Expand a season cell to inspect its components.</p>
+  <span class="section-tag">78 BASE / 7 SEASONS</span>
 </section>
 <div class="table-wrap grid-wrap">
   <table class="data-table cap-grid">
@@ -16,8 +16,20 @@
           <strong>{{ cell|cell }}</strong>
           <small>{{ cell.remaining|number }} space{% if cell.cap_trade %} / trade {{ "+" if cell.cap_trade > 0 else "" }}{{ cell.cap_trade|number }}{% endif %}{% if cell.il_relief %} / IL +{{ cell.il_relief }}{% endif %}</small>
           {% if cell.contracts %}<details><summary>{{ cell.contracts|length }} multi-year deal{% if cell.contracts|length != 1 %}s{% endif %}</summary>
-            <ul>{% for contract in cell.contracts %}<li>{{ contract.player_name }} <span>{{ contract.years_remaining }} yr{% if contract.years_remaining != 1 %}s{% endif %} left</span></li>{% endfor %}</ul>
-          </details>{% endif %}
+            <ul>{% for contract in cell.contracts %}<li>{{ contract.player_name }}{% if contract.position %} <span>{{ contract.position }}</span>{% endif %} <span>{{ contract.years_remaining }} yr{% if contract.years_remaining != 1 %}s{% endif %} left</span></li>{% endfor %}</ul>
+          </details>{% else %}<details><summary>0 multi-year deals</summary><p class="detail-empty">None</p></details>{% endif %}
+          {% if cell.one_year_contracts %}<details><summary>{{ cell.one_year_contracts|length }} one-year contract{% if cell.one_year_contracts|length != 1 %}s{% endif %}</summary>
+            <ul>{% for contract in cell.one_year_contracts %}<li>{{ contract.player_name }}{% if contract.position %} <span>{{ contract.position }}</span>{% endif %} <span>FA {{ contract.fa_year }}</span></li>{% endfor %}</ul>
+          </details>{% else %}<details><summary>0 one-year contracts</summary><p class="detail-empty">None</p></details>{% endif %}
+          {% if cell.dead_cap_players %}<details><summary>Dead cap: {{ cell.dead_cap|number }}</summary>
+            <ul>{% for player in cell.dead_cap_players %}<li>{{ player.player_name }}{% if player.position %} <span>{{ player.position }}</span>{% endif %} <span>{{ player.dead_cap|number }} cap yrs · FA {{ player.fa_year }}</span></li>{% endfor %}</ul>
+          </details>{% else %}<details><summary>Dead cap: 0</summary><p class="detail-empty">None</p></details>{% endif %}
+          <details><summary>{{ cell.cap_trade_events|length }} cap trade{% if cell.cap_trade_events|length != 1 %}s{% endif %}</summary>
+            {% if cell.cap_trade_events %}<ul>{% for trade in cell.cap_trade_events %}<li>{{ "Received" if trade.years > 0 else "Sent" }} {{ trade.years|abs|number }} yrs <span>{{ trade.note|value }}</span></li>{% endfor %}</ul>{% else %}<p class="detail-empty">None</p>{% endif %}
+          </details>
+          {% if cell.il_roster_known %}<details><summary>{{ cell.il_players|length }} IL player{% if cell.il_players|length != 1 %}s{% endif %}</summary>
+            {% if cell.il_players %}<ul>{% for player in cell.il_players %}<li>{{ player.player_name }} <span>{{ player.positions|value }}</span></li>{% endfor %}</ul>{% else %}<p class="detail-empty">None on the current snapshot</p>{% endif %}
+          </details>{% elif cell.year == report.season %}<details><summary>IL roster unavailable</summary><p class="detail-empty">No current-season roster snapshot is available.</p></details>{% else %}<details><summary>IL roster not projected</summary><p class="detail-empty">Future IL roster is not projected.</p></details>{% endif %}
         </td>
         {% endfor %}
       </tr>
@@ -26,13 +38,15 @@
   </table>
 </div>
 <section class="minor-section">
-  <div class="section-heading"><div><p class="eyebrow">PLANNING ROSTER</p><h2>Minor leaguers</h2></div><span>{{ report.minors|length }} players</span></div>
-  <div class="table-wrap"><table class="data-table">
-    <thead><tr><th>Player</th><th>Team</th><th>Pos.</th><th>Age</th><th>Career MLB AB / IP</th></tr></thead>
-    <tbody>{% for player in report.minors %}<tr>
-      <td>{{ player.player_name }}</td><td>{{ player.team_name }}</td><td>{{ player.positions|value }}</td><td>{{ player.age|value }}</td>
-      <td>{{ player.career_ab|value }} / {{ player.career_ip|value }}</td>
-    </tr>{% else %}<tr><td colspan="5" class="empty">No minor-league roster snapshot available.</td></tr>{% endfor %}</tbody>
-  </table></div>
+  <div class="section-heading"><div><p class="eyebrow">FANTRAX ROSTER</p><h2>Minor league players</h2></div><span>{% if report.minor_rosters_available %}{{ report.minors|length }} players{% else %}Roster snapshot unavailable{% endif %}</span></div>
+  {% if report.minor_rosters_available %}
+    {% for team in report.teams %}
+      <details class="minor-team">
+        <summary>{{ team.team_name }} · {{ team.minor_players|length }} players</summary>
+        {% if team.minor_players %}<ul class="minor-roster-list">{% for player in team.minor_players %}<li>{{ player.player_name }} <span>{{ player.position|value }}</span></li>{% endfor %}</ul>
+        {% else %}<p class="detail-empty">No minor-league players on the saved Fantrax roster.</p>{% endif %}
+      </details>
+    {% endfor %}
+  {% else %}<p class="empty-state">No minor-league roster snapshot is available.</p>{% endif %}
 </section>
 {% endblock %}

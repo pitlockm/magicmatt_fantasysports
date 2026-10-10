@@ -1,7 +1,7 @@
 # Prompt Implementation Handoff
 
-**Status date:** 2026-10-06
-**Branch:** `main` at `9c3084e`, synchronized with `origin/main`; migration/config/tests and handoff updates are local and uncommitted
+**Status date:** 2026-10-09
+**Branch:** `main` at `6352748`, synchronized with `origin/main`; report, prompt, and handoff refinements are local and uncommitted
 **Implementation state:** The migration dry-run is clean with official multi-year minors contracts preserved and counted toward cap. The daily V14 promotion validation is documented but not yet implemented. No production contract events, live Discord connection, Apps Script deployment, or pipeline Git publish has been run.
 
 ## Summary
@@ -40,15 +40,26 @@ Added `sda/forms/` with:
 
 ### Reports and pipeline
 
+- Contracts and cap are one page: each team/season cell shows committed/remaining, expandable multi-year and one-year contracts, dropped-player dead cap details, cap-trade events, and IL players. Current IL names use the saved snapshot; future IL is marked unprojected. The minors section has one expandable roster per team listing names and positions; age-by-year is deferred until bio coverage is populated. The standalone Cap Tracker page is retired.
+- Current IL and minors detail is read from the saved raw Fantrax roster snapshot, with the DB roster snapshot as fallback. This allows team minors lists to render when the database has no dated roster rows.
 - Every report build writes four machine-readable files under `site/api/`: `cap_state.json`, `players.json`, `recent_adds.json`, and `draft_results.json`. Empty inputs produce valid empty JSON values.
+- Free-agent projection is one sortable/filterable table with player/team/position/age/FA year, hitter and pitcher stat columns, and latest Fantrax ADP. Redundant Signed Through and Deal columns are removed. Completed-season stats can be supplied with `--player-stats-csv` and `--stats-season`; joins use Fantrax player IDs. ADP is separate from historical stats and labeled with snapshot date.
 - Implemented the pipeline stages for cached/live pull, roster diffs, validation/defaults, history, report/API build, DB text snapshot, GitHub Pages copy to repository-root `docs/`, and optional alerts.
 - Dry-run uses a temporary database and temporary site/pages directories. It does not pull the network, mutate the live DB, send alerts, or stage Git files.
 - Publishing requires a clean worktree on `main`; the pipeline skips a same-day run when input snapshot hashes match.
 - Updated README and added `OPERATIONS.md` and `LEAGUE_CALENDAR.md` for Forms, bot, pipeline, and launchd operation.
 
+### Report restructure (latest session)
+
+- Navigation is now: **Contract Cap Tracker** (`index.html`, template `grid.html`, report key `grid`), **Free Agency Forecast** (`free_agents.html`), **Team Roster Projections** (`roster_projections.html`, new), Waivers, Standings, History. Page titles match the tab names; `REPORT_PAGES` in `sda/reports/build.py` and `templates/base.html` hold the labels. Internal keys/filenames were intentionally left unchanged.
+- Team Roster Projections: `report_roster_projections()` builds one grid per team (rows = players, columns = the seven seasons from the build season). Rows are grouped by primary position (C, 1B, 2B, 3B, SS, OF, UT, SP, RP; LF/CF/RF→OF, DH→UT) and sorted longest contract first, then name. A season is highlighted when it is before the player's FA year (e.g. FA 2030 from 2027 highlights 2027–2029, matching cap-tracker counting). Contracts with FA year <= build season are omitted.
+- Unsigned minor-league players (from the Fantrax minors snapshot, not already contracted) are listed after signed players at their position with a "Minors · unsigned" tag and no highlights. Each year cell carries a `projected` flag (always False now) with a hatched CSS style (`.year-cell.projected`) reserved for future minor-league projection logic.
+- Open question for the commissioner: confirm the highlight convention (seasons strictly before FA year) is the desired one.
+- Possible next steps: implement minors projections, add position/team filters to the roster page, and implement the V14 promotion validation and daily scheduling noted below. `site/` is gitignored; regenerate with `python -m sda.reports --season 2027` (use the repo-root `.venv`).
+
 ## Verification
 
-- Python suite: **103 passed** after official multi-year minors support.
+- Python suite: **107 passed** (includes the new roster-projection test).
 - Latest dry-run after the placeholder-minors ruling: **554/554** player rows matched; **0 exceptions**; **0 cap errors**; **179 planned events**; `can_commit=True`.
 - Commissioner resolutions are applied for the 24 reviewed rows: owner/ID overrides, five dropped exclusions, minor-league no-contract treatment, missing-year policy, and removal of the stale O'Hearn duplicate. Jose Ramirez is explicitly mapped to the 3B/CLE player ID `01ub6`, overriding an older incorrect alias.
 - Migration eligibility is strictly `contract_years > 1`; rows at one year or less are excluded whether marked dropped or active. Missing non-minor contract years default to a 2026 one-year deal (FA 2027), so those rows are also excluded. When a player appears on multiple sheets, the current Fantrax roster team is authoritative. This resolves the prior duplicate groups: retain Framber Valdez's two-year Pecora row and omit its one-year duplicate; omit the one-year rows for Gore, Nola, Brooks Lee, and Nick Martinez. O'Hearn resolves to Hoffman; Lugo/Ray are one-year rows and are outside this migration scope.
@@ -56,6 +67,7 @@ Added `sda/forms/` with:
 - The commissioner reviewed the five candidate minor deals (Jackson Jobe, Hagen Smith, Cam Caminiti, Gage Wood, Noelvi Marte) and confirmed all tracker terms are placeholders, not official contracts. These five rows now have explicit no-contract overrides; the current migration plans zero minors contract events. If a future review confirms an official multi-year contract for a demoted minor, it is preserved and counted against cap. The commit path refreshes the schema so legacy `current_contracts` views include official minors deals.
 - No new Fantrax pull is needed for this migration: the commissioner confirmed the saved end-of-season snapshot is the intended roster source.
 - The event-by-event migration review file is `data/migration_event_preview_2026-10-06.csv` (179 planned events). No source CSVs or production ledger events have been changed.
+- Free-agent page was rebuilt and visually checked at desktop/mobile sizes; search and FA-year filters were exercised. Current saved data has no completed-season stats CSV and the saved ADP snapshot is empty, so those cells render as unavailable; the page clearly labels stats as not loaded and ADP vintage as 2026-10-02. README documents the Fantrax CSV command.
 - **Daily promotion validation:** `roster_snapshots` already stores dated MLB/minors roster levels, and the pipeline computes roster-level changes. The new V14 check (minors → MLB/IL with no active official contract) is not implemented yet. The prompt now specifies a configurable annual per-team unsigned-promotion allowance, default 0; allowed moves consume quota, while V12 still applies its one-year default after the normal window. Daily snapshots can detect and report moves but cannot prevent Fantrax from making them; a missed snapshot can hide transitions during the gap.
 - The production ledger still contains **0 events**; no migration commit has been performed.
 - Apps Script pure validation and exact relay-format tests passed under macOS JavaScriptCore (`osascript -l JavaScript`).

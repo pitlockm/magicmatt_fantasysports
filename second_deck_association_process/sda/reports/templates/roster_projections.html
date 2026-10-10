@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section-intro">
+  <p>Players grouped by position, longest contract first. Highlighted years are seasons a player is under contract. Unsigned minor-league players are listed without highlights.</p>
+  <span class="section-tag">{{ report.seasons[0] }}–{{ report.seasons[-1] }}</span>
+</section>
+{% for team in report.teams %}
+<section class="roster-team">
+  <div class="section-heading"><div><h2>{{ team.team_name }}</h2></div><span>{{ team.players|length }} players</span></div>
+  <div class="table-wrap">
+    <table class="data-table roster-grid">
+      <thead><tr><th>Player</th><th>Pos.</th>{% for year in report.seasons %}<th>{{ year }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for player in team.players %}
+        <tr{% if not player.signed %} class="unsigned"{% endif %}>
+          <th scope="row">{{ player.player_name }}{% if not player.signed %} <span class="tag-minor">Minors · unsigned</span>{% endif %}</th>
+          <td>{{ player.position|value }}</td>
+          {% for cell in player.years %}<td class="year-cell{% if cell.on_roster %} on-roster{% elif cell.projected %} projected{% endif %}" title="{{ cell.year }}{% if cell.on_roster %} · under contract{% endif %}">{% if cell.on_roster %}<span class="sr-only">On roster</span>{% endif %}</td>{% endfor %}
+        </tr>
+      {% else %}<tr><td colspan="{{ report.seasons|length + 2 }}" class="empty">No players.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}<p class="empty-state">No teams have been loaded.</p>{% endfor %}
+{% endblock %}

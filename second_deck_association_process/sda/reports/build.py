@@ -16,7 +16,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from sda.db.connection import DEFAULT_DATABASE_PATH, open_database
-from sda.fantrax.normalize import DEFAULT_ALIAS_PATH, load_aliases, normalize_alias
+from sda.fantrax.normalize import DEFAULT_ALIAS_PATH, load_aliases, normalize_alias, normalize_rosters
 from sda.fantrax.snapshots import load_snapshot
 from sda.validation.engine import run_all
 
@@ -28,12 +28,12 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "site"
 DEFAULT_SNAPSHOT_ROOT = PROJECT_ROOT / "data" / "raw"
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
 REPORT_PAGES = (
-    ("index.html", "Multi-year grid", "grid"),
-    ("free_agents.html", "Free-agent projection", "free_agents"),
+    ("index.html", "Contract Cap Tracker", "grid"),
+    ("free_agents.html", "Free Agency Forecast", "free_agents"),
+    ("roster_projections.html", "Team Roster Projections", "roster_projections"),
     ("waivers.html", "Waiver wire", "waivers"),
     ("standings.html", "Standings", "standings"),
     ("history.html", "League history", "history"),
-    ("cap_tracker.html", "Salary cap tracker", "cap_tracker"),
     ("ledger.html", "Contract ledger", "ledger"),
     ("validation.html", "Validation report", "validation"),
     ("transactions.html", "Transaction log", "transactions"),
@@ -50,9 +50,24 @@ def report_multiyear_grid(
     cap_years: int = 78,
     *,
     years: int = 7,
+    il_players: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+    il_roster_available: bool = False,
+    minors: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Create team-by-season cap cells and a separate current-minors listing."""
     seasons = list(range(season, season + years))
+    il_players = il_players or {}
+    minors_by_team: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for player in minors:
+        team_id = str(player.get("team_id", ""))
+        birthdate = player.get("birthdate")
+        minors_by_team[team_id].append(
+            {
+                "player_name": player.get("player_name") or player.get("fantrax_id", ""),
+                "fantrax_id": player.get("fantrax_id"),
+                "position": player.get("positions"),
+            }
+        )
     rows = []
     for team in teams:
         team_id = str(team["team_id"])
@@ -71,6 +86,21 @@ def report_multiyear_grid(
                 if str(event.get("team_id")) == team_id
                 and str(event.get("event_type", "")).upper() == "DROPPED"
             )
+            dead_cap_players = []
+            for event in events:
+                if str(event.get("team_id")) != team_id or str(event.get("event_type", "")).upper() != "DROPPED":
+                    continue
+                penalty = _dead_cap_for_year(event, target_year)
+                if penalty > 0:
+                    dead_cap_players.append(
+                        {
+                            "player_name": event.get("player_name") or event.get("fantrax_id") or "Unknown player",
+                            "fantrax_id": event.get("fantrax_id"),
+                            "position": event.get("positions"),
+                            "dead_cap": penalty,
+                            "fa_year": event.get("fa_year"),
+                        }
+                    )
             cap_trade = sum(
                 float(event["years"])
                 for event in events
@@ -82,6 +112,7 @@ def report_multiyear_grid(
             multi_year_contracts = [
                 {
                     "player_name": contract.get("player_name") or contract["fantrax_id"],
+                    "position": contract.get("positions"),
                     "fa_year": int(contract["fa_year"]),
                     "years_remaining": int(contract["fa_year"]) - target_year,
                     "roster_level": contract.get("roster_level", "MLB"),
@@ -89,6 +120,28 @@ def report_multiyear_grid(
                 for contract in active_contracts
                 if int(contract["fa_year"]) - _year(contract.get("ts")) > 1
             ]
+            one_year_contracts = [
+                {
+                    "player_name": contract.get("player_name") or contract["fantrax_id"],
+                    "position": contract.get("positions"),
+                    "fa_year": int(contract["fa_year"]),
+                    "roster_level": contract.get("roster_level", "MLB"),
+                }
+                for contract in active_contracts
+                if int(contract["fa_year"]) - _year(contract.get("ts")) <= 1
+            ]
+            cap_trade_events = [
+                {
+                    "years": float(event["years"]),
+                    "note": event.get("note") or "",
+                    "source": event.get("source") or "",
+                }
+                for event in events
+                if str(event.get("team_id")) == team_id
+                and str(event.get("event_type", "")).upper() == "CAP_TRADE"
+                and _year(event.get("ts")) == target_year
+            ]
+            current_il_players = list(il_players.get(team_id, [])) if target_year == season else []
             committed = float(active_years) + dead_cap
             effective_cap = float(cap_years + il_relief + cap_trade)
             remaining = effective_cap - committed
@@ -97,15 +150,101 @@ def report_multiyear_grid(
                     "year": target_year,
                     "active_years": float(active_years),
                     "dead_cap": float(dead_cap),
+                    "dead_cap_players": sorted(dead_cap_players, key=lambda item: str(item["player_name"]).casefold()),
                     "committed": committed,
                     "cap_trade": float(cap_trade),
                     "il_relief": il_relief,
                     "effective_cap": effective_cap,
                     "remaining": remaining,
                     "contracts": sorted(multi_year_contracts, key=lambda item: item["player_name"].casefold()),
+                    "one_year_contracts": sorted(one_year_contracts, key=lambda item: item["player_name"].casefold()),
+                    "cap_trade_events": cap_trade_events,
+                    "il_players": sorted(current_il_players, key=lambda item: str(item.get("player_name", "")).casefold()),
+                    "il_roster_known": il_roster_available and target_year == season,
                 }
             )
-        rows.append({**team, "cells": cells})
+        team_id = str(team["team_id"])
+        rows.append({
+            **team,
+            "cells": cells,
+            "minor_players": sorted(minors_by_team.get(team_id, []), key=lambda item: str(item["player_name"]).casefold()),
+        })
+    return {"season": season, "seasons": seasons, "teams": rows, "minor_rosters_available": il_roster_available}
+
+
+POSITION_ORDER = ("C", "1B", "2B", "3B", "SS", "OF", "UT", "SP", "RP", "P")
+POSITION_ALIASES = {"LF": "OF", "CF": "OF", "RF": "OF", "DH": "UT", "CI": "1B", "MI": "2B"}
+
+
+def _primary_position(value: Any) -> str:
+    parts = [part.strip().upper() for part in re.split(r"[,/|]", str(value or "")) if part.strip()]
+    if not parts:
+        return "UT"
+    return POSITION_ALIASES.get(parts[0], parts[0])
+
+
+def report_roster_projections(
+    teams: Sequence[Mapping[str, Any]],
+    contracts: Sequence[Mapping[str, Any]],
+    minors: Sequence[Mapping[str, Any]],
+    season: int,
+    *,
+    years: int = 7,
+) -> dict[str, Any]:
+    """Create per-team player-by-season grids grouped by position, longest contract first.
+
+    Each player year carries ``on_roster`` (contract coverage) and ``projected``
+    (reserved for future minor-league projections; always False for now).
+    """
+    seasons = list(range(season, season + years))
+    rows = []
+    for team in teams:
+        team_id = str(team["team_id"])
+        players: list[dict[str, Any]] = []
+        contracted_ids = set()
+        for contract in contracts:
+            if str(contract["team_id"]) != team_id or int(contract["fa_year"]) <= season:
+                continue
+            contracted_ids.add(str(contract["fantrax_id"]))
+            fa_year = int(contract["fa_year"])
+            players.append(
+                {
+                    "player_name": contract.get("player_name") or contract["fantrax_id"],
+                    "fantrax_id": contract["fantrax_id"],
+                    "position": contract.get("positions"),
+                    "primary_position": _primary_position(contract.get("positions")),
+                    "fa_year": fa_year,
+                    "signed": True,
+                    "roster_level": contract.get("roster_level", "MLB"),
+                    "years": [
+                        {"year": year, "on_roster": year < fa_year, "projected": False}
+                        for year in seasons
+                    ],
+                }
+            )
+        for player in minors:
+            if str(player.get("team_id", "")) != team_id or str(player.get("fantrax_id")) in contracted_ids:
+                continue
+            players.append(
+                {
+                    "player_name": player.get("player_name") or player.get("fantrax_id", ""),
+                    "fantrax_id": player.get("fantrax_id"),
+                    "position": player.get("positions"),
+                    "primary_position": _primary_position(player.get("positions")),
+                    "fa_year": None,
+                    "signed": False,
+                    "roster_level": "MINORS",
+                    "years": [{"year": year, "on_roster": False, "projected": False} for year in seasons],
+                }
+            )
+
+        def sort_key(item: Mapping[str, Any]) -> tuple[int, int, str]:
+            position = item["primary_position"]
+            order = POSITION_ORDER.index(position) if position in POSITION_ORDER else len(POSITION_ORDER)
+            return order, -(item["fa_year"] or 0), str(item["player_name"]).casefold()
+
+        players.sort(key=sort_key)
+        rows.append({**team, "players": players})
     return {"season": season, "seasons": seasons, "teams": rows}
 
 
@@ -114,34 +253,66 @@ def report_free_agents(
     teams: Sequence[Mapping[str, Any]],
     season: int,
     *,
+    players: Mapping[str, Mapping[str, Any]] | None = None,
+    stats_by_id: Mapping[str, Mapping[str, Any]] | None = None,
+    stats_season: int | None = None,
+    adp_by_id: Mapping[str, float] | None = None,
+    adp_as_of: str | None = None,
     years: int = 7,
 ) -> dict[str, Any]:
-    """Group active deals by their first free-agent year."""
+    """Build one enriched, sortable row per player and free-agent year."""
     team_names = {str(team["team_id"]): team["team_name"] for team in teams}
-    by_year: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    players = players or {}
+    stats_by_id = stats_by_id or {}
+    adp_by_id = adp_by_id or {}
+    stats_season = stats_season if stats_season is not None else season - 1
+    free_agents: list[dict[str, Any]] = []
     for contract in contracts:
         fa_year = int(contract["fa_year"])
         if not season <= fa_year <= season + years:
             continue
-        signed_year = _year(contract.get("ts"))
-        by_year[fa_year].append(
+        fantrax_id = str(contract["fantrax_id"])
+        player = players.get(fantrax_id, {})
+        stats = stats_by_id.get(fantrax_id, {})
+        position_text = str(player.get("positions") or "")
+        positions = [part.strip() for part in re.split(r"[,/|]", position_text) if part.strip()]
+        player_stats = stats_by_id.get(fantrax_id, {})
+        free_agents.append(
             {
-                "player_name": contract.get("player_name") or contract["fantrax_id"],
-                "fantrax_id": contract["fantrax_id"],
+                "player_name": contract.get("player_name") or player.get("name") or fantrax_id,
+                "fantrax_id": fantrax_id,
                 "team_name": team_names.get(str(contract["team_id"]), str(contract["team_id"])),
                 "team_id": str(contract["team_id"]),
-                "signed_through": fa_year - 1,
+                "position": ", ".join(positions) or None,
+                "positions": positions,
+                "age": _age(player.get("birthdate"), date(stats_season, 7, 1)),
                 "fa_year": fa_year,
-                "multi_year": fa_year - signed_year > 1,
+                "adp": adp_by_id.get(fantrax_id),
                 "roster_level": contract.get("roster_level", "MLB"),
-                "star": _is_top_rank(contract.get("rank")),
+                **{
+                    stat: player_stats.get(stat)
+                    for stat in (
+                        "runs", "obp", "home_runs", "stolen_bases", "strikeouts",
+                        "era", "whip", "quality_starts", "saves_holds",
+                    )
+                },
             }
         )
-    years_data = [
-        {"year": year, "players": sorted(players, key=lambda item: (item["team_name"], item["player_name"]))}
-        for year, players in sorted(by_year.items())
-    ]
-    return {"season": season, "years": years_data}
+    free_agents.sort(key=lambda item: (item["fa_year"], item["team_name"].casefold(), item["player_name"].casefold()))
+    return {
+        "season": season,
+        "stats_season": stats_season,
+        "stats_available": any(
+            player["fantrax_id"] in stats_by_id
+            and any(value is not None for value in stats_by_id[player["fantrax_id"]].values())
+            for player in free_agents
+        ),
+        "adp_as_of": adp_as_of,
+        "players": free_agents,
+        "fa_years": sorted({player["fa_year"] for player in free_agents}),
+        "positions": sorted({position for player in free_agents for position in player["positions"]}),
+        "teams": sorted({player["team_name"] for player in free_agents}, key=str.casefold),
+    }
 
 
 def report_waivers(rows: Sequence[Mapping[str, Any]], *, limit: int = 10) -> dict[str, Any]:
@@ -215,34 +386,6 @@ def report_league_history(
     return {"all_time": list(all_time), "yearly": list(yearly)}
 
 
-def report_cap_tracker(
-    teams: Sequence[Mapping[str, Any]],
-    contracts: Sequence[Mapping[str, Any]],
-    events: Sequence[Mapping[str, Any]],
-    il_counts: Mapping[str, int],
-    season: int,
-    cap_years: int = 78,
-    *,
-    years: int = 7,
-) -> dict[str, Any]:
-    """Prepare annual base, IL, trade, commitment, and remaining-cap values."""
-    grid = report_multiyear_grid(teams, contracts, events, il_counts, season, cap_years, years=years)
-    return {
-        "season": season,
-        "years": [
-            {
-                "team_id": team["team_id"],
-                "team_name": team["team_name"],
-                "base_cap": cap_years,
-                **cell,
-                "remaining": cell["effective_cap"] - cell["committed"],
-            }
-            for team in grid["teams"]
-            for cell in cell_list(team)
-        ],
-    }
-
-
 def report_contract_ledger(events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Sort append-only contract events newest first for the audit page."""
     return {"events": sorted(events, key=lambda row: (_datetime(row.get("ts")) or datetime.min, int(row.get("event_id") or 0)), reverse=True)}
@@ -272,18 +415,26 @@ def build_site(
     snapshot_root: Path = DEFAULT_SNAPSHOT_ROOT,
     waiver_csv: Path | None = None,
     transactions_csv: Path | None = None,
+    player_stats_csv: Path | None = None,
+    stats_season: int | None = None,
     alias_path: Path = DEFAULT_ALIAS_PATH,
 ) -> Path:
-    """Render six reports and three supporting views to a static site directory."""
+    """Render five reports and three supporting views to a static site directory."""
     validation = run_all(season, database_path)
     data = _load_database_data(Path(database_path), season)
+    roster_payload = _load_optional_snapshot("team_rosters", snapshot_root)
+    if roster_payload is not None:
+        _overlay_current_roster(data, roster_payload, season)
     standings_payload = _load_optional_snapshot("standings", snapshot_root)
     matchup_payload = _load_optional_snapshot("matchup_scores", snapshot_root)
     league_info = _load_optional_snapshot("league_info", snapshot_root)
     adp_payload = _load_optional_snapshot("adp", snapshot_root)
-    player_ranks = _player_ranks(adp_payload)
-    for contract in data["contracts"]:
-        contract["rank"] = player_ranks.get(str(contract["fantrax_id"]))
+    adp_by_id = _player_ranks(adp_payload)
+    adp_as_of = _latest_snapshot_date("adp", snapshot_root)
+    stats_by_id, loaded_stats_season = _load_player_stats_csv(
+        player_stats_csv,
+        stats_season if stats_season is not None else season - 1,
+    )
     waiver_rows = _load_waiver_rows(league_info, waiver_csv or _find_data_csv(snapshot_root, "waiver_wire.csv"), data["players"])
     transactions = _load_transactions(
         _load_optional_snapshot("transactions", snapshot_root),
@@ -291,21 +442,32 @@ def build_site(
     )
 
     grid = report_multiyear_grid(
-        data["teams"], data["contracts"], data["events"], data["il_counts"], season, data["cap_years"]
+        data["teams"], data["contracts"], data["events"], data["il_counts"], season,
+        data["cap_years"], il_players=data["il_players"], il_roster_available=data["il_roster_available"],
+        minors=data["minors"],
     )
     reports = {
         "grid": grid,
-        "free_agents": report_free_agents(data["contracts"], data["teams"], season),
+        "free_agents": report_free_agents(
+            data["contracts"],
+            data["teams"],
+            season,
+            players=data["players"],
+            stats_by_id=stats_by_id,
+            stats_season=loaded_stats_season,
+            adp_by_id=adp_by_id,
+            adp_as_of=adp_as_of,
+        ),
         "waivers": report_waivers(waiver_rows),
         "standings": report_standings(standings_payload, matchup_payload, data["teams"]),
         "history": report_league_history(data["all_time_history"], data["yearly_history"]),
-        "cap_tracker": report_cap_tracker(
-            data["teams"], data["contracts"], data["events"], data["il_counts"], season, data["cap_years"]
-        ),
         "ledger": report_contract_ledger(data["events"]),
         "validation": report_validation(validation),
         "transactions": report_transactions(transactions),
     }
+    reports["roster_projections"] = report_roster_projections(
+        data["teams"], data["contracts"], data["minors"], season,
+    )
     reports["grid"]["minors"] = data["minors"]
     reports["grid"]["season"] = season
 
@@ -319,6 +481,7 @@ def build_site(
     environment.filters["date"] = _format_date
     environment.filters["value"] = _display
     environment.filters["cell"] = _cell_value
+    environment.filters["stat"] = _format_stat
     for filename, title, key in REPORT_PAGES:
         template = environment.get_template(f"{key}.html")
         html = template.render(
@@ -329,6 +492,7 @@ def build_site(
             generated_at=datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"),
         )
         (output_dir / filename).write_text(html, encoding="utf-8")
+    (output_dir / "cap_tracker.html").unlink(missing_ok=True)
     (output_dir / "static").mkdir(parents=True, exist_ok=True)
     for asset in ("style.css", "sort.js"):
         (output_dir / "static" / asset).write_bytes((STATIC_DIR / asset).read_bytes())
@@ -500,7 +664,7 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
         }
         contract_rows = connection.execute(
             """SELECT c.event_id, c.ts, c.team_id, t.team_name, c.fantrax_id, p.name,
-                      c.event_type, c.years, c.fa_year, c.roster_level, c.note
+                      c.event_type, c.years, c.fa_year, c.roster_level, c.note, p.positions
                FROM current_contracts c
                JOIN teams t ON t.team_id = c.team_id
                JOIN players p ON p.fantrax_id = c.fantrax_id
@@ -511,6 +675,7 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
                 "event_id": row[0], "ts": row[1], "team_id": str(row[2]), "team_name": row[3],
                 "fantrax_id": str(row[4]), "player_name": row[5], "event_type": row[6],
                 "years": float(row[7]), "fa_year": int(row[8]), "roster_level": row[9], "note": row[10],
+                "positions": row[11],
             }
             for row in contract_rows
         ]
@@ -518,7 +683,7 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
             """SELECT e.event_id, e.ts, e.recorded_at, e.team_id, t.team_name,
                       e.fantrax_id, p.name, e.event_type, e.years, e.fa_year, e.source,
                       e.note, e.approved_by, e.roster_level, e.form_ref,
-                      e.acquisition_type, e.announced_at
+                      e.acquisition_type, e.announced_at, p.positions
                FROM contract_events e
                JOIN teams t ON t.team_id = e.team_id
                LEFT JOIN players p ON p.fantrax_id = e.fantrax_id
@@ -531,6 +696,7 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
                 "event_type": row[7], "years": float(row[8]), "fa_year": row[9], "source": row[10],
                 "note": row[11], "approved_by": row[12], "roster_level": row[13],
                 "form_ref": row[14], "acquisition_type": row[15], "announced_at": row[16],
+                "positions": row[17],
             }
             for row in event_rows
         ]
@@ -543,12 +709,20 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
             [latest_date],
         ).fetchall() if latest_date else []
         il_counts: dict[str, int] = defaultdict(int)
+        il_players: dict[str, list[dict[str, Any]]] = defaultdict(list)
         minors = []
         team_names = {team["team_id"]: team["team_name"] for team in teams}
         for row in roster_rows:
             team_id, player_id, level, name, birthdate, career_ab, career_ip, positions = row
             if level == "IL":
                 il_counts[str(team_id)] += 1
+                il_players[str(team_id)].append(
+                    {
+                        "fantrax_id": str(player_id),
+                        "player_name": name or str(player_id),
+                        "positions": positions,
+                    }
+                )
             if level == "minors":
                 minors.append(
                     {
@@ -556,6 +730,7 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
                         "fantrax_id": str(player_id), "player_name": name or str(player_id),
                         "age": _age(birthdate, date(season, 7, 1)),
                         "career_ab": career_ab, "career_ip": career_ip, "positions": positions,
+                        "birthdate": birthdate,
                     }
                 )
         all_time_rows = connection.execute(
@@ -597,11 +772,58 @@ def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
         "contracts": contracts,
         "events": events,
         "il_counts": dict(il_counts),
+        "il_players": dict(il_players),
+        "il_roster_available": latest_date is not None,
         "minors": minors,
         "all_time_history": all_time,
         "yearly_history": yearly,
         "cap_years": int(config[0]) if config else 78,
     }
+
+
+def _overlay_current_roster(
+    data: dict[str, Any],
+    payload: Any,
+    season: int,
+) -> None:
+    """Use the saved Fantrax roster as current IL/minors detail for reports."""
+    rosters = normalize_rosters(payload, data["players"])
+    team_names = {str(team["team_id"]): team["team_name"] for team in data["teams"]}
+    il_counts: dict[str, int] = {}
+    il_players: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    minors: list[dict[str, Any]] = []
+    for team_id, roster in rosters.items():
+        il_counts[team_id] = int(roster["il_slots_used"])
+        for player in roster["mlb_roster"]:
+            if player["roster_level"] != "IL":
+                continue
+            il_players[team_id].append(
+                {
+                    "fantrax_id": player["id"],
+                    "player_name": player.get("name") or player["id"],
+                    "positions": ", ".join(player.get("positions", [])),
+                }
+            )
+        for player in roster["minors_roster"]:
+            known_player = data["players"].get(player["id"], {})
+            positions = player.get("positions") or known_player.get("positions") or []
+            minors.append(
+                {
+                    "team_id": team_id,
+                    "team_name": team_names.get(team_id, roster["team_name"]),
+                    "fantrax_id": player["id"],
+                    "player_name": player.get("name") or known_player.get("name") or player["id"],
+                    "positions": ", ".join(positions) if isinstance(positions, list) else str(positions),
+                    "birthdate": known_player.get("birthdate"),
+                    "age": _age(known_player.get("birthdate"), date(season, 7, 1)),
+                    "career_ab": known_player.get("career_ab"),
+                    "career_ip": known_player.get("career_ip"),
+                }
+            )
+    data["il_counts"] = il_counts
+    data["il_players"] = dict(il_players)
+    data["minors"] = minors
+    data["il_roster_available"] = bool(rosters)
 
 
 def _load_optional_snapshot(name: str, snapshot_root: Path) -> Any:
@@ -702,6 +924,63 @@ def _player_ranks(payload: Any) -> dict[str, float]:
         if player_id is not None and rank is not None:
             ranks[str(player_id)] = rank
     return ranks
+
+
+def _latest_snapshot_date(name: str, snapshot_root: Path) -> str | None:
+    paths = sorted(Path(snapshot_root).glob(f"????-??-??/{name}.json"), reverse=True)
+    return paths[0].parent.name if paths else None
+
+
+def _load_player_stats_csv(
+    path: Path | None,
+    latest_completed_season: int,
+) -> tuple[dict[str, dict[str, float | None]], int]:
+    """Load one completed-season Fantrax stats export keyed by Fantrax player ID."""
+    if path is None:
+        return {}, latest_completed_season
+    with Path(path).open(encoding="utf-8-sig", newline="") as source:
+        reader = csv.DictReader(source)
+        if reader.fieldnames is None:
+            raise ValueError(f"Player stats CSV has no header: {path}")
+        rows = [{_key(key): value for key, value in row.items() if key is not None} for row in reader]
+    if not rows:
+        return {}, latest_completed_season
+    rows = [row for row in rows if any(str(value or "").strip() for value in row.values())]
+
+    season_values = [
+        int(value)
+        for row in rows
+        if (value := _number(_field(row, "season", "year", "stat season"))) is not None
+        and value <= latest_completed_season
+    ]
+    selected_season = max(season_values) if season_values else latest_completed_season
+    fields = {
+        "runs": ("R", "runs"),
+        "obp": ("OBP", "on base percentage", "on base pct"),
+        "home_runs": ("HR", "home runs"),
+        "stolen_bases": ("SB", "stolen bases"),
+        "strikeouts": ("K", "SO", "strikeouts"),
+        "era": ("ERA",),
+        "whip": ("WHIP",),
+        "quality_starts": ("QS", "quality starts"),
+        "saves_holds": ("SVH", "SV HLD", "saves holds", "saves and holds"),
+    }
+    stats_by_id: dict[str, dict[str, float | None]] = {}
+    for row in rows:
+        row_season = _number(_field(row, "season", "year", "stat season"))
+        if row_season is not None and int(row_season) != selected_season:
+            continue
+        player_id = _field(row, "Fantrax ID", "player ID", "playerId", "fantraxId", "ID")
+        if not player_id:
+            raise ValueError(f"Player stats CSV row has no Fantrax player ID: {path}")
+        player_id = str(player_id).strip()
+        if player_id in stats_by_id:
+            raise ValueError(f"Player stats CSV has duplicate Fantrax ID {player_id} for {selected_season}")
+        stats_by_id[player_id] = {
+            field_name: _number(_field(row, *aliases))
+            for field_name, aliases in fields.items()
+        }
+    return stats_by_id, selected_season
 
 
 def _load_transactions(payload: Any, csv_path: Path | None) -> list[dict[str, Any]]:
@@ -906,6 +1185,19 @@ def _format_number(value: Any) -> str:
     return str(int(number)) if number.is_integer() else f"{number:.1f}"
 
 
+def _format_stat(value: Any, stat_type: str = "integer") -> str:
+    number = _number(value)
+    if number is None:
+        return "—"
+    if stat_type == "three-decimal":
+        return f"{number:.3f}"
+    if stat_type == "two-decimal":
+        return f"{number:.2f}"
+    if stat_type == "one-decimal":
+        return f"{number:.1f}"
+    return _format_number(number)
+
+
 def _format_date(value: Any) -> str:
     parsed = _date_value(value)
     return parsed.isoformat() if parsed else "—"
@@ -927,11 +1219,6 @@ def _format_record(wins: Any, losses: Any, ties: Any) -> str:
     return f"{wins}-{losses}-{ties}"
 
 
-def cell_list(team: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
-    """Expose cap cells for report_cap_tracker without coupling it to DB handles."""
-    return team["cells"]
-
-
 def main(argv: list[str] | None = None) -> int:
     """Run report-site generation from the command line."""
     parser = argparse.ArgumentParser(description="Build the SDA static HTML reports site.")
@@ -941,6 +1228,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--snapshot-root", type=Path, default=DEFAULT_SNAPSHOT_ROOT)
     parser.add_argument("--waiver-csv", type=Path)
     parser.add_argument("--transactions-csv", type=Path)
+    parser.add_argument("--player-stats-csv", type=Path, help="Official Fantrax export for the latest completed season.")
+    parser.add_argument("--stats-season", type=int, help="Season represented by --player-stats-csv; defaults to season - 1.")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
@@ -951,6 +1240,8 @@ def main(argv: list[str] | None = None) -> int:
             snapshot_root=args.snapshot_root,
             waiver_csv=args.waiver_csv,
             transactions_csv=args.transactions_csv,
+            player_stats_csv=args.player_stats_csv,
+            stats_season=args.stats_season,
         )
     except (OSError, RuntimeError, ValueError) as error:
         LOGGER.error("Could not build reports: %s", error)

@@ -66,14 +66,34 @@ h2 { font-size: 25px; line-height: 1.2; }
 .team-cell { min-width: 142px; }
 .team-cell small { display: block; color: var(--muted); font-weight: 400; margin-top: 3px; }
 .cap-grid { min-width: 980px; }
-.cap-grid td { min-width: 118px; }
+.cap-grid td { min-width: 170px; }
 .cap-grid td > strong { color: var(--green); font-size: 16px; white-space: nowrap; }
 .cap-grid td > small { display: block; color: var(--muted); white-space: nowrap; font-size: 10px; margin: 4px 0; }
 .cap-grid details { font-size: 11px; }
 .cap-grid summary { color: var(--rust); cursor: pointer; }
+.cap-grid details { padding: 2px 0; border-top: 1px solid var(--line); }
+.cap-grid details summary { padding: 3px 0; }
+.cap-grid .detail-empty { margin: 2px 0 6px; color: var(--muted); font-size: 11px; }
 .cap-grid ul { padding-left: 17px; margin: 7px 0 0; }
 .cap-grid li { margin: 3px 0; white-space: nowrap; }
 .cap-grid li span { color: var(--muted); }
+.minor-team { border-top: 1px solid var(--line); }
+.minor-team summary { padding: 12px 4px; color: var(--green); font-weight: 700; cursor: pointer; }
+.minor-roster-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 22px; margin: 0 0 12px; padding: 0; list-style: none; }
+.minor-roster-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.minor-roster-list li span { color: var(--muted); font-size: 11px; }
+.table-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; padding: 12px; background: var(--surface); border: 1px solid var(--line); }
+.table-filters label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.table-filters input, .table-filters select, .table-filters button { min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 2px; background: var(--surface); color: var(--ink); font: inherit; }
+.table-filters input { min-width: 220px; }
+.table-filters input:focus, .table-filters select:focus, .table-filters button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.table-filters button { cursor: pointer; color: var(--green); font-weight: 700; }
+.filter-status { margin-left: auto; padding: 8px 2px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.free-agent-wrap { max-height: calc(100vh - 310px); }
+.free-agent-table { min-width: 1320px; }
+.free-agent-table thead th { position: sticky; top: 0; z-index: 1; }
+.free-agent-table th:nth-child(n+4), .free-agent-table td:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
+.free-agent-table th:nth-child(1), .free-agent-table td:nth-child(1), .free-agent-table th:nth-child(2), .free-agent-table td:nth-child(2), .free-agent-table th:nth-child(3), .free-agent-table td:nth-child(3) { text-align: left; }
 .standings-table { min-width: 1120px; }
 .standings-table thead tr:first-child th { text-align: center; }
 .standings-table thead tr:first-child th:first-child, .standings-table thead tr:first-child th:nth-child(2), .standings-table thead tr:first-child th:nth-child(3) { text-align: left; }
@@ -103,6 +123,18 @@ code { font-size: .95em; color: var(--ink); }
   .generated { margin-top: 12px; }
   .section-intro { display: block; }
   .section-tag { display: inline-block; margin-top: 8px; }
+  .table-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+  .table-filters label:first-child { grid-column: 1 / -1; }
+  .table-filters input { min-width: 0; width: 100%; }
+  .filter-status { margin-left: 0; }
+  .free-agent-wrap { max-height: none; }
   .site-footer { padding: 16px; display: block; }
   .site-footer nav { margin-top: 9px; gap: 12px; }
 }
+.roster-team { margin: 0 0 24px; }
+.roster-grid .year-cell { min-width: 52px; text-align: center; border-left: 1px solid var(--line); }
+.roster-grid .year-cell.on-roster { background: var(--green); }
+.roster-grid .year-cell.projected { background: repeating-linear-gradient(45deg, #dfe8df, #dfe8df 4px, transparent 4px, transparent 8px); }
+.roster-grid tr.unsigned th { font-weight: 400; color: var(--muted); }
+.roster-grid .tag-minor { margin-left: 6px; font-size: 10px; color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

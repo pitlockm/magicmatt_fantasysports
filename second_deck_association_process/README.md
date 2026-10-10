@@ -31,7 +31,17 @@ Season history is updated from the latest saved standings with `python -m sda.db
 
 Run deterministic contract and roster checks with `python -m sda.validation --season 2027`. The engine reads the latest DuckDB roster snapshot, reports per-team rule results, and exits nonzero when a rule fails. After a roster add has remained unannounced for 24 hours, it appends one `DEFAULTED_1YR` event and reports the action. Form-originated contract events retain their relay UUID, acquisition type, and submit timestamp. Real-life IL eligibility is stored separately from Fantrax roster-slot status; unknown eligibility is reported for commissioner review rather than inferred.
 
-Build the static report site with `python -m sda.reports --season 2027`. It writes six league reports, three audit views, and `site/api/{cap_state,players,recent_adds,draft_results}.json`. The builder uses saved Fantrax snapshots when available, and accepts `--waiver-csv` / `--transactions-csv` exports for those feeds; it never loads `.env` or embeds credentials.
+Build the static report site with `python -m sda.reports --season 2027`. It writes six primary reports (Contract Cap Tracker, Free Agency Forecast, Team Roster Projections, Waivers, Standings, History), three audit views, and `site/api/{cap_state,players,recent_adds,draft_results}.json`. The builder uses saved Fantrax snapshots when available, and accepts `--waiver-csv` / `--transactions-csv` exports for those feeds; it never loads `.env` or embeds credentials.
+
+The free-agent projection is a single sortable/filterable table. To populate last-completed-season hitting/pitching stats, provide an official Fantrax player stats CSV with a Fantrax/player ID column and stat headers such as R, OBP, HR, SB, K, ERA, WHIP, QS, and SV/HLD:
+
+```bash
+python -m sda.reports --season 2027 \
+	--player-stats-csv /path/to/fantrax-2026-player-stats.csv \
+	--stats-season 2026
+```
+
+Rows are joined by Fantrax player ID. If the CSV has a Season/Year column, the report selects the latest season not newer than `--stats-season`. Latest ADP is read separately from the saved Fantrax `adp` snapshot and its snapshot date is shown; ADP is not used as a substitute for season statistics. Without a stats CSV, the report labels stats as not loaded and displays missing values as em dashes.
 
 ## Forms and Commishbot
 

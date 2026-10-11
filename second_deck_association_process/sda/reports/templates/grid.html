@@ -4,23 +4,24 @@
   <p>Annual cap position combines official contract commitments, scheduled dead cap, base cap, injured-list relief, and cap-trade adjustments. Expand a season cell to inspect its components.</p>
   <span class="section-tag">78 BASE / 7 SEASONS</span>
 </section>
+<p class="grid-controls"><button type="button" data-grid-collapse="all">Collapse all teams</button> <button type="button" data-grid-collapse="none">Expand all teams</button> <span>Records read players / contract years.</span></p>
 <div class="table-wrap grid-wrap">
   <table class="data-table cap-grid">
     <thead><tr><th>Team</th>{% for year in report.seasons %}<th>{{ year }}</th>{% endfor %}</tr></thead>
     <tbody>
     {% for team in report.teams %}
       <tr>
-        <th scope="row" class="team-cell">{{ team.team_name }}<small>{{ team.manager|value }}</small></th>
+        <th scope="row" class="team-cell"><button type="button" class="row-toggle" aria-label="Collapse or expand {{ team.team_name }}">▾</button> {{ team.team_name }}<small>{{ team.manager|value }}</small></th>
         {% for cell in team.cells %}
         <td>
-          <strong>{{ cell|cell }}</strong>
+          <strong>{{ cell.player_count }} players / {{ cell.active_years|number }} contract yrs</strong>
           <small>{{ cell.remaining|number }} space{% if cell.cap_trade %} / trade {{ "+" if cell.cap_trade > 0 else "" }}{{ cell.cap_trade|number }}{% endif %}{% if cell.il_relief %} / IL +{{ cell.il_relief }}{% endif %}</small>
-          {% if cell.contracts %}<details><summary>{{ cell.contracts|length }} multi-year deal{% if cell.contracts|length != 1 %}s{% endif %}</summary>
+          {% if cell.contracts %}<details><summary>multi-year contracts: {{ cell.contracts|length }} / {{ cell.multi_year_years }}</summary>
             <ul>{% for contract in cell.contracts %}<li>{{ contract.player_name }}{% if contract.position %} <span>{{ contract.position }}</span>{% endif %} <span>{{ contract.years_remaining }} yr{% if contract.years_remaining != 1 %}s{% endif %} left</span></li>{% endfor %}</ul>
-          </details>{% else %}<details><summary>0 multi-year deals</summary><p class="detail-empty">None</p></details>{% endif %}
-          {% if cell.one_year_contracts %}<details><summary>{{ cell.one_year_contracts|length }} one-year contract{% if cell.one_year_contracts|length != 1 %}s{% endif %}</summary>
+          </details>{% else %}<details><summary>multi-year contracts: 0 / 0</summary><p class="detail-empty">None</p></details>{% endif %}
+          {% if cell.one_year_contracts %}<details><summary>one-year contracts: {{ cell.one_year_contracts|length }} / {{ cell.one_year_years }}</summary>
             <ul>{% for contract in cell.one_year_contracts %}<li>{{ contract.player_name }}{% if contract.position %} <span>{{ contract.position }}</span>{% endif %} <span>FA {{ contract.fa_year }}</span></li>{% endfor %}</ul>
-          </details>{% else %}<details><summary>0 one-year contracts</summary><p class="detail-empty">None</p></details>{% endif %}
+          </details>{% else %}<details><summary>one-year contracts: 0 / 0</summary><p class="detail-empty">None</p></details>{% endif %}
           {% if cell.dead_cap_players %}<details><summary>Dead cap: {{ cell.dead_cap|number }}</summary>
             <ul>{% for player in cell.dead_cap_players %}<li>{{ player.player_name }}{% if player.position %} <span>{{ player.position }}</span>{% endif %} <span>{{ player.dead_cap|number }} cap yrs · FA {{ player.fa_year }}</span></li>{% endfor %}</ul>
           </details>{% else %}<details><summary>Dead cap: 0</summary><p class="detail-empty">None</p></details>{% endif %}
@@ -37,6 +38,27 @@
     </tbody>
   </table>
 </div>
+<script>
+(function () {
+  var rows = document.querySelectorAll(".cap-grid tbody tr");
+  function setRow(row, collapsed) {
+    row.classList.toggle("collapsed", collapsed);
+    var toggle = row.querySelector(".row-toggle");
+    if (toggle) toggle.textContent = collapsed ? "▸" : "▾";
+    row.querySelectorAll("details").forEach(function (d) { if (collapsed) d.open = false; });
+  }
+  rows.forEach(function (row) {
+    var toggle = row.querySelector(".row-toggle");
+    if (toggle) toggle.addEventListener("click", function () { setRow(row, !row.classList.contains("collapsed")); });
+  });
+  document.querySelectorAll("[data-grid-collapse]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var collapse = button.getAttribute("data-grid-collapse") === "all";
+      rows.forEach(function (row) { setRow(row, collapse); });
+    });
+  });
+})();
+</script>
 <section class="minor-section">
   <div class="section-heading"><div><p class="eyebrow">FANTRAX ROSTER</p><h2>Minor league players</h2></div><span>{% if report.minor_rosters_available %}{{ report.minors|length }} players{% else %}Roster snapshot unavailable{% endif %}</span></div>
   {% if report.minor_rosters_available %}

@@ -1,0 +1,85 @@
+{
+  "season": 2027,
+  "teams": {
+    "0ur2ghtzmk7scnai": {
+      "committed_years": 46.0,
+      "effective_cap": 86.0,
+      "remaining": 40.0,
+      "season": 2027,
+      "team_id": "0ur2ghtzmk7scnai",
+      "team_name": "#SaveTheKeyhole"
+    },
+    "1t779zvsmk7scnai": {
+      "committed_years": 50.0,
+      "effective_cap": 83.0,
+      "remaining": 33.0,
+      "season": 2027,
+      "team_id": "1t779zvsmk7scnai",
+      "team_name": "Dinger Dave's Demolition Squad"
+    },
+    "2lcfvwbomk7scnai": {
+      "committed_years": 56.0,
+      "effective_cap": 82.0,
+      "remaining": 26.0,
+      "season": 2027,
+      "team_id": "2lcfvwbomk7scnai",
+      "team_name": "Boe's Prospect Preschool"
+    },
+    "2zq83f02mk7scnaj": {
+      "committed_years": 48.0,
+      "effective_cap": 81.0,
+      "remaining": 33.0,
+      "season": 2027,
+      "team_id": "2zq83f02mk7scnaj",
+      "team_name": "Magic Matt Fantasy Baseball"
+    },
+    "3naxvj6smk7scnaj": {
+      "committed_years": 51.0,
+      "effective_cap": 81.0,
+      "remaining": 30.0,
+      "season": 2027,
+      "team_id": "3naxvj6smk7scnaj",
+      "team_name": "Glorious Goggles"
+    },
+    "9i8efuljmk7scnai": {
+      "committed_years": 57.0,
+      "effective_cap": 82.0,
+      "remaining": 25.0,
+      "season": 2027,
+      "team_id": "9i8efuljmk7scnai",
+      "team_name": "2017 MLB All Stars"
+    },
+    "eo8af59vmk7scnai": {
+      "committed_years": 49.0,
+      "effective_cap": 81.0,
+      "remaining": 32.0,
+      "season": 2027,
+      "team_id": "eo8af59vmk7scnai",
+      "team_name": "10 day IL"
+    },
+    "h27d3vjimk7scnai": {
+      "committed_years": 53.0,
+      "effective_cap": 82.0,
+      "remaining": 29.0,
+      "season": 2027,
+      "team_id": "h27d3vjimk7scnai",
+      "team_name": "Mighty Melonheads"
+    },
+    "mjhiu8tsmk7scnai": {
+      "committed_years": 44.0,
+      "effective_cap": 83.0,
+      "remaining": 39.0,
+      "season": 2027,
+      "team_id": "mjhiu8tsmk7scnai",
+      "team_name": "Witt-ness Protection Program"
+    },
+    "s4wcyba8mk7scnai": {
+      "committed_years": 42.0,
+      "effective_cap": 79.0,
+      "remaining": 37.0,
+      "season": 2027,
+      "team_id": "s4wcyba8mk7scnai",
+      "team_name": "Army of the Potomac"
+    }
+  }
+}

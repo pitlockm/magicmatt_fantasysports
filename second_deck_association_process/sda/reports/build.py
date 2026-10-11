@@ -31,6 +31,7 @@ REPORT_PAGES = (
     ("index.html", "Contract Cap Tracker", "grid"),
     ("free_agents.html", "Free Agency Forecast", "free_agents"),
     ("roster_projections.html", "Team Roster Projections", "roster_projections"),
+    ("minor_league_stats.html", "Minor League Stats", "minor_league_stats"),
     ("waivers.html", "Waiver wire", "waivers"),
     ("standings.html", "Standings", "standings"),
     ("history.html", "League history", "history"),
@@ -38,6 +39,11 @@ REPORT_PAGES = (
     ("validation.html", "Validation report", "validation"),
     ("transactions.html", "Transaction log", "transactions"),
 )
+MINORS_AB_LIMIT = 1000
+MINORS_IP_LIMIT = 200
+MINORS_WARNING_RATIO = 0.9
+_LEVEL_RANK = {"MLB": 5, "AAA": 4, "AA": 3, "A+": 2, "A": 1, "ROK": 0}
+_PITCHER_POSITIONS = {"SP", "RP", "P"}
 CATEGORIES = ("R", "HR", "RBI", "SB", "OBP", "QS", "K", "ERA", "WHIP", "SVH")
 
 
@@ -118,17 +124,18 @@ def report_multiyear_grid(
                     "roster_level": contract.get("roster_level", "MLB"),
                 }
                 for contract in active_contracts
-                if int(contract["fa_year"]) - _year(contract.get("ts")) > 1
+                if int(contract["fa_year"]) - target_year > 1
             ]
             one_year_contracts = [
                 {
                     "player_name": contract.get("player_name") or contract["fantrax_id"],
                     "position": contract.get("positions"),
                     "fa_year": int(contract["fa_year"]),
+                    "years_remaining": 1,
                     "roster_level": contract.get("roster_level", "MLB"),
                 }
                 for contract in active_contracts
-                if int(contract["fa_year"]) - _year(contract.get("ts")) <= 1
+                if int(contract["fa_year"]) - target_year <= 1
             ]
             cap_trade_events = [
                 {
@@ -156,6 +163,9 @@ def report_multiyear_grid(
                     "il_relief": il_relief,
                     "effective_cap": effective_cap,
                     "remaining": remaining,
+                    "player_count": len(active_contracts),
+                    "multi_year_years": sum(item["years_remaining"] for item in multi_year_contracts),
+                    "one_year_years": len(one_year_contracts),
                     "contracts": sorted(multi_year_contracts, key=lambda item: item["player_name"].casefold()),
                     "one_year_contracts": sorted(one_year_contracts, key=lambda item: item["player_name"].casefold()),
                     "cap_trade_events": cap_trade_events,
@@ -293,7 +303,7 @@ def report_free_agents(
                     stat: player_stats.get(stat)
                     for stat in (
                         "runs", "obp", "home_runs", "stolen_bases", "strikeouts",
-                        "era", "whip", "quality_starts", "saves_holds",
+                        "era", "whip", "innings_pitched", "saves_holds",
                     )
                 },
             }
@@ -435,6 +445,8 @@ def build_site(
         player_stats_csv,
         stats_season if stats_season is not None else season - 1,
     )
+    if player_stats_csv is None:
+        stats_by_id, loaded_stats_season = _load_mlb_player_stats(Path(database_path), loaded_stats_season)
     waiver_rows = _load_waiver_rows(league_info, waiver_csv or _find_data_csv(snapshot_root, "waiver_wire.csv"), data["players"])
     transactions = _load_transactions(
         _load_optional_snapshot("transactions", snapshot_root),
@@ -467,6 +479,10 @@ def build_site(
     }
     reports["roster_projections"] = report_roster_projections(
         data["teams"], data["contracts"], data["minors"], season,
+    )
+    minor_stat_rows, minor_stats_season = _load_minor_league_stats(Path(database_path))
+    reports["minor_league_stats"] = report_minor_league_stats(
+        data["teams"], data["minors"], minor_stat_rows, stats_season=minor_stats_season,
     )
     reports["grid"]["minors"] = data["minors"]
     reports["grid"]["season"] = season
@@ -504,6 +520,15 @@ def build_site(
         _load_optional_snapshot("draft_results", snapshot_root),
         _load_recent_adds(Path(database_path), data["players"], data["teams"]),
         alias_path,
+    )
+    (output_dir / "api").mkdir(parents=True, exist_ok=True)
+    (output_dir / "api" / "minor_league_flags.json").write_text(
+        json.dumps(
+            {"season": season, "ab_limit": MINORS_AB_LIMIT, "ip_limit": MINORS_IP_LIMIT,
+             "flags": reports["minor_league_stats"]["flags"]},
+            indent=2, default=str,
+        ) + "\n",
+        encoding="utf-8",
     )
     LOGGER.info("Built SDA static reports in %s", output_dir)
     return output_dir
@@ -638,6 +663,144 @@ def _normalize_draft_results(
             }
         )
     return {team_id: picks_for_team for team_id, picks_for_team in sorted(result.items())}
+
+
+def career_limit_flag(
+    value: float | None,
+    limit: float,
+    warning_ratio: float = MINORS_WARNING_RATIO,
+) -> str | None:
+    """Return 'exceeded' above the career MLB limit, 'approaching' from the warning threshold."""
+    if value is None:
+        return None
+    if value > limit:
+        return "exceeded"
+    if value >= limit * warning_ratio:
+        return "approaching"
+    return None
+
+
+def report_minor_league_stats(
+    teams: Sequence[Mapping[str, Any]],
+    minors: Sequence[Mapping[str, Any]],
+    stat_rows: Sequence[Mapping[str, Any]],
+    *,
+    stats_season: int | None = None,
+    ab_limit: float = MINORS_AB_LIMIT,
+    ip_limit: float = MINORS_IP_LIMIT,
+    warning_ratio: float = MINORS_WARNING_RATIO,
+) -> dict[str, Any]:
+    """Per-level stats for each team's minors roster plus career MLB limit flags."""
+    lines_by_player: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in stat_rows:
+        lines_by_player[str(row["fantrax_id"])].append(row)
+    minors_by_team: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for player in minors:
+        minors_by_team[str(player["team_id"])].append(player)
+
+    flags: list[dict[str, Any]] = []
+    team_reports: list[dict[str, Any]] = []
+    for team in teams:
+        team_id = str(team["team_id"])
+        hitters: list[dict[str, Any]] = []
+        pitchers: list[dict[str, Any]] = []
+        for player in sorted(minors_by_team.get(team_id, ()), key=lambda item: str(item.get("player_name"))):
+            fantrax_id = str(player["fantrax_id"])
+            tokens = {token.strip().upper() for token in re.split(r"[,/|]", str(player.get("positions") or "")) if token.strip()}
+            lines = lines_by_player.get(fantrax_id, [])
+            is_pitcher = bool(tokens & _PITCHER_POSITIONS) or (
+                not tokens and any(line["stat_group"] == "pitching" for line in lines)
+                and not any(line["stat_group"] == "hitting" for line in lines)
+            )
+            is_hitter = bool(tokens - _PITCHER_POSITIONS) or not is_pitcher
+            candidates = []
+            if is_hitter:
+                candidates.append(("AB", player.get("career_ab"), ab_limit))
+            if is_pitcher:
+                candidates.append(("IP", player.get("career_ip"), ip_limit))
+            limit_flag: dict[str, Any] = {"status": None, "metric": candidates[0][0], "value": candidates[0][1], "limit": candidates[0][2]}
+            for metric, value, limit in candidates:
+                status = career_limit_flag(_number(value), limit, warning_ratio)
+                if status == "exceeded" or (status and limit_flag["status"] != "exceeded"):
+                    limit_flag = {"status": status, "metric": metric, "value": value, "limit": limit}
+            if limit_flag["status"]:
+                flags.append(
+                    {
+                        "team_id": team_id, "team_name": team["team_name"], "fantrax_id": fantrax_id,
+                        "player_name": player.get("player_name"), **limit_flag,
+                    }
+                )
+            for group, bucket in (("hitting", hitters), ("pitching", pitchers)):
+                if (group == "hitting" and not is_hitter) or (group == "pitching" and not is_pitcher):
+                    continue
+                levels = sorted(
+                    (line for line in lines if line["stat_group"] == group),
+                    key=lambda line: _LEVEL_RANK.get(str(line["level"]), -1),
+                    reverse=True,
+                )
+                bucket.append(
+                    {
+                        "fantrax_id": fantrax_id,
+                        "player_name": player.get("player_name"),
+                        "position": player.get("positions"),
+                        "age": player.get("age"),
+                        "career_ab": player.get("career_ab"),
+                        "career_ip": player.get("career_ip"),
+                        "limit_flag": limit_flag if limit_flag["metric"] == ("AB" if group == "hitting" else "IP") else {"status": None},
+                        "levels": [dict(line) for line in levels],
+                    }
+                )
+        team_reports.append({"team_id": team_id, "team_name": team["team_name"], "hitters": hitters, "pitchers": pitchers})
+    return {
+        "teams": team_reports,
+        "flags": flags,
+        "stats_season": stats_season,
+        "stats_available": bool(stat_rows),
+        "ab_limit": ab_limit,
+        "ip_limit": ip_limit,
+        "warning_ratio": warning_ratio,
+    }
+
+
+def _load_mlb_player_stats(
+    database_path: Path,
+    default_season: int,
+) -> tuple[dict[str, dict[str, float | None]], int]:
+    """Merge MLB-level hitting and pitching lines per Fantrax ID from the MLB Stats API refresh."""
+    with open_database(database_path, read_only=True) as connection:
+        season = connection.execute("SELECT max(season) FROM mlb_player_stats").fetchone()[0]
+        if season is None:
+            return {}, default_season
+        rows = connection.execute(
+            """SELECT fantrax_id, stat_group, runs, home_runs, stolen_bases, obp, ip, strikeouts,
+                      era, whip, saves_holds
+               FROM mlb_player_stats WHERE season = ? ORDER BY stat_group""",
+            [season],
+        ).fetchall()
+    stats: dict[str, dict[str, float | None]] = {}
+    for fantrax_id, group, runs, hr, sb, obp, ip, strikeouts, era, whip, saves_holds in rows:
+        merged = stats.setdefault(str(fantrax_id), {})
+        if group == "hitting":
+            merged.update(runs=runs, home_runs=hr, stolen_bases=sb, obp=obp)
+            merged.setdefault("strikeouts", strikeouts)
+        else:
+            merged.update(
+                strikeouts=strikeouts, era=era, whip=whip, innings_pitched=ip, saves_holds=saves_holds,
+            )
+    return stats, int(season)
+
+
+def _load_minor_league_stats(database_path: Path) -> tuple[list[dict[str, Any]], int | None]:
+    with open_database(database_path, read_only=True) as connection:
+        tables = {row[0] for row in connection.execute("SELECT table_name FROM information_schema.tables").fetchall()}
+        if "minor_league_stats" not in tables:
+            return [], None
+        stats_season = connection.execute("SELECT max(season) FROM minor_league_stats").fetchone()[0]
+        if stats_season is None:
+            return [], None
+        cursor = connection.execute("SELECT * FROM minor_league_stats WHERE season = ?", [stats_season])
+        columns = [column[0] for column in cursor.description]
+        return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()], int(stats_season)
 
 
 def _load_database_data(database_path: Path, season: int) -> dict[str, Any]:
@@ -962,7 +1125,7 @@ def _load_player_stats_csv(
         "strikeouts": ("K", "SO", "strikeouts"),
         "era": ("ERA",),
         "whip": ("WHIP",),
-        "quality_starts": ("QS", "quality starts"),
+        "innings_pitched": ("IP", "innings pitched"),
         "saves_holds": ("SVH", "SV HLD", "saves holds", "saves and holds"),
     }
     stats_by_id: dict[str, dict[str, float | None]] = {}

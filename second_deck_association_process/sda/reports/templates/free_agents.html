@@ -18,7 +18,7 @@
       <th data-sort>Player</th><th data-sort>Team</th><th data-sort>Pos.</th><th data-sort>Age</th>
       <th data-sort>ADP</th><th data-sort>FA year</th><th data-sort>R</th><th data-sort>OBP</th>
       <th data-sort>HR</th><th data-sort>SB</th><th data-sort>K</th><th data-sort>ERA</th>
-      <th data-sort>WHIP</th><th data-sort>QS</th><th data-sort>SV/HLD</th>
+      <th data-sort>WHIP</th><th data-sort>IP</th><th data-sort>SV/HLD</th>
     </tr></thead>
     <tbody>
     {% for player in report.players %}
@@ -27,7 +27,7 @@
         <td>{{ player.age|value }}</td><td>{{ player.adp|stat('one-decimal') }}</td><td><strong>{{ player.fa_year }}</strong></td>
         <td>{{ player.runs|stat }}</td><td>{{ player.obp|stat('three-decimal') }}</td><td>{{ player.home_runs|stat }}</td>
         <td>{{ player.stolen_bases|stat }}</td><td>{{ player.strikeouts|stat }}</td><td>{{ player.era|stat('two-decimal') }}</td>
-        <td>{{ player.whip|stat('two-decimal') }}</td><td>{{ player.quality_starts|stat }}</td><td>{{ player.saves_holds|stat }}</td>
+        <td>{{ player.whip|stat('two-decimal') }}</td><td>{{ player.innings_pitched|stat('one-decimal') }}</td><td>{{ player.saves_holds|stat }}</td>
       </tr>
     {% else %}<tr class="empty-row"><td colspan="15" class="empty">No upcoming free-agent years are recorded.</td></tr>{% endfor %}
     </tbody>

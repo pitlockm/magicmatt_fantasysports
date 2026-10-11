@@ -33,7 +33,7 @@ Run deterministic contract and roster checks with `python -m sda.validation --se
 
 Build the static report site with `python -m sda.reports --season 2027`. It writes six primary reports (Contract Cap Tracker, Free Agency Forecast, Team Roster Projections, Waivers, Standings, History), three audit views, and `site/api/{cap_state,players,recent_adds,draft_results}.json`. The builder uses saved Fantrax snapshots when available, and accepts `--waiver-csv` / `--transactions-csv` exports for those feeds; it never loads `.env` or embeds credentials.
 
-The free-agent projection is a single sortable/filterable table. To populate last-completed-season hitting/pitching stats, provide an official Fantrax player stats CSV with a Fantrax/player ID column and stat headers such as R, OBP, HR, SB, K, ERA, WHIP, QS, and SV/HLD:
+The free-agent projection is a single sortable/filterable table. To populate last-completed-season hitting/pitching stats, provide an official Fantrax player stats CSV with a Fantrax/player ID column and stat headers such as R, OBP, HR, SB, K, ERA, WHIP, IP, and SV/HLD:
 
 ```bash
 python -m sda.reports --season 2027 \
@@ -80,3 +80,8 @@ The laptop hosts the bot and pipeline; they are offline while it is off. Install
 Install/start with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sda.commishbot.plist`; stop/uninstall with `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.sda.commishbot.plist`. The bot resumes from the last processed Discord message ID and writes DB text snapshots after changes. The pipeline publishes the generated site to the repository-root `docs/` directory for GitHub Pages and pushes only when the worktree is clean.
 
 For daily operation and issue handling, see [OPERATIONS.md](OPERATIONS.md) and [LEAGUE_CALENDAR.md](LEAGUE_CALENDAR.md).
+## Minor League Stats tab
+
+The nightly pipeline refreshes this automatically (step 5b; failures are logged and prior data kept; skipped in `--dry-run`). Manual refresh: `python -m sda.mlb stats --season 2026` (MLB Stats API; fills IDs, ages, career MLB totals and per-level minor-league lines). The report's Minor League Stats tab shows one row per level per rostered minors player, plus flags against the Fantrax career limits (hitters 1,000 AB, pitchers 200 IP): "approaching" at ≥90%, "exceeded" when strictly over. Flags are also written to `site/api/minor_league_flags.json` for future manager messaging.
+
+The same refresh also stores MLB-level season lines (`mlb_player_stats`) for every rostered player; the Free Agency Forecast uses them automatically for R, OBP, HR, SB, K, ERA, WHIP, IP and SVH, and ages come from MLB birthdates. A `--player-stats-csv` file, if supplied, overrides them.

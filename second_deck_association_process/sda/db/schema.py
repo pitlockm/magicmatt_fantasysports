@@ -88,6 +88,45 @@ CREATE TABLE IF NOT EXISTS roster_snapshots (
     PRIMARY KEY (snapshot_date, team_id, fantrax_id)
 );
 
+CREATE TABLE IF NOT EXISTS minor_league_stats (
+    season INTEGER NOT NULL,
+    fantrax_id VARCHAR NOT NULL,
+    mlbam_id INTEGER NOT NULL,
+    stat_group VARCHAR NOT NULL CHECK (stat_group IN ('hitting', 'pitching')),
+    level VARCHAR NOT NULL,
+    team_name VARCHAR,
+    age INTEGER,
+    ab INTEGER,
+    runs INTEGER,
+    home_runs INTEGER,
+    stolen_bases INTEGER,
+    obp DOUBLE,
+    ip DOUBLE,
+    strikeouts INTEGER,
+    era DOUBLE,
+    whip DOUBLE,
+    refreshed_at TIMESTAMP,
+    PRIMARY KEY (season, fantrax_id, stat_group, level)
+);
+
+CREATE TABLE IF NOT EXISTS mlb_player_stats (
+    season INTEGER NOT NULL,
+    fantrax_id VARCHAR NOT NULL,
+    mlbam_id INTEGER NOT NULL,
+    stat_group VARCHAR NOT NULL CHECK (stat_group IN ('hitting', 'pitching')),
+    runs INTEGER,
+    home_runs INTEGER,
+    stolen_bases INTEGER,
+    obp DOUBLE,
+    ip DOUBLE,
+    strikeouts INTEGER,
+    era DOUBLE,
+    whip DOUBLE,
+    saves_holds INTEGER,
+    refreshed_at TIMESTAMP,
+    PRIMARY KEY (season, fantrax_id, stat_group)
+);
+
 CREATE TABLE IF NOT EXISTS pending_contracts (
     pending_id INTEGER PRIMARY KEY DEFAULT nextval('pending_contract_id_seq'),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -149,6 +188,9 @@ CREATE TABLE IF NOT EXISTS season_config (
     min_mlb_roster INTEGER,
     cap_years INTEGER NOT NULL DEFAULT 78
 );
+
+ALTER TABLE season_config ADD COLUMN IF NOT EXISTS unsigned_promotion_allowance INTEGER DEFAULT 0;
+ALTER TABLE season_config ADD COLUMN IF NOT EXISTS team_unsigned_promotion_allowances VARCHAR;
 
 CREATE TABLE IF NOT EXISTS team_season_history (
     season INTEGER NOT NULL,
@@ -375,15 +417,18 @@ def sync_season_config(
     connection.execute(
         """INSERT INTO season_config (
                season, freeze_date, trade_deadline, draft_start, draft_end,
-               min_mlb_roster, cap_years
-           ) VALUES (?, ?, ?, ?, ?, ?, ?)
+               min_mlb_roster, cap_years,
+               unsigned_promotion_allowance, team_unsigned_promotion_allowances
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (season) DO UPDATE SET
                freeze_date = excluded.freeze_date,
                trade_deadline = excluded.trade_deadline,
                draft_start = excluded.draft_start,
                draft_end = excluded.draft_end,
                min_mlb_roster = excluded.min_mlb_roster,
-               cap_years = excluded.cap_years""",
+               cap_years = excluded.cap_years,
+               unsigned_promotion_allowance = excluded.unsigned_promotion_allowance,
+               team_unsigned_promotion_allowances = excluded.team_unsigned_promotion_allowances""",
         [
             int(config["season"]),
             config_date("freeze_date"),
@@ -392,6 +437,20 @@ def sync_season_config(
             config_date("draft_end"),
             config.get("min_mlb_roster"),
             int(config.get("cap_years", 78)),
+            _allowance(config.get("unsigned_promotion_allowance", 0)),
+            json.dumps(
+                {
+                    str(team_id): _allowance(value)
+                    for team_id, value in (config.get("team_unsigned_promotion_allowances") or {}).items()
+                },
+                sort_keys=True,
+            ),
         ],
     )
     return int(config["season"])
+
+
+def _allowance(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"Unsigned promotion allowance must be a non-negative integer: {value!r}")
+    return value

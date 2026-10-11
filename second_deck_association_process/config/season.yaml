@@ -7,3 +7,5 @@ draft_start: 2027-03-13
 draft_end: 2027-03-18     # finishes one week before Opening Day
 min_mlb_roster: null      # no minimum enforced yet; a future rule may require 26
 discord_announcements_channel_id: 1496593362135027963
+unsigned_promotion_allowance: 0   # V14: unsigned minors->MLB/IL promotions allowed per team per year
+team_unsigned_promotion_allowances: {}   # optional per-team overrides, e.g. {t1: 2}

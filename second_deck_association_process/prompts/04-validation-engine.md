@@ -35,6 +35,7 @@ Encode the league's contract and roster rules as **deterministic checks** that r
 | V11 | Roster min | < `min_mlb_roster` (skip entirely while config is null) |
 | V12 | One-day signing | new Fantrax MLB add with no matching Discord announcement within 1 day → auto-append `DEFAULTED_1YR` event (`source='system'`) and include it in the report as an action taken |
 | V13 | IL eligibility | player occupying a Fantrax IL slot who is **not** on the real-life MLB IL (healthy stash — fail); any minor-league player classified IL (fail — constitution §2.4 bars it); real-life-IL player sitting in an active slot while the team claims IL cap relief for him (flag for commissioner review only — slot-based relief is pending rules-committee ratification, see `rules-committee/il-slot-brief.md`) |
+| V14 | Minors-to-MLB contract requirement | diff consecutive dated roster snapshots; a player moving minors → MLB/IL with no active official contract effective by the promotion date fails (detection only — Fantrax cannot block it). Per-team `unsigned_promotion_allowance` (season.yaml, default 0; overrides in `team_unsigned_promotion_allowances`) lets that many promotions per year pass without creating a contract. Missing snapshots flag review. |
 
 Each check returns: `rule_id`, `team_id`, `fantrax_id` (if player-specific), `passed: bool`, `detail: str`. The engine aggregates into a report object: per-team lists plus a league-wide summary count.
 

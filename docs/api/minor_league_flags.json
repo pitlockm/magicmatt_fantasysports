@@ -1,0 +1,47 @@
+{
+  "season": 2027,
+  "ab_limit": 1000,
+  "ip_limit": 200,
+  "flags": [
+    {
+      "team_id": "0ur2ghtzmk7scnai",
+      "team_name": "#SaveTheKeyhole",
+      "fantrax_id": "060jo",
+      "player_name": "Smith, Cam",
+      "status": "approaching",
+      "metric": "AB",
+      "value": 951,
+      "limit": 1000
+    },
+    {
+      "team_id": "3naxvj6smk7scnaj",
+      "team_name": "Glorious Goggles",
+      "fantrax_id": "06491",
+      "player_name": "Kerkering, Orion",
+      "status": "approaching",
+      "metric": "IP",
+      "value": 184.0,
+      "limit": 200
+    },
+    {
+      "team_id": "3naxvj6smk7scnaj",
+      "team_name": "Glorious Goggles",
+      "fantrax_id": "05jpd",
+      "player_name": "Seymour, Ian",
+      "status": "approaching",
+      "metric": "IP",
+      "value": 189.66666666666666,
+      "limit": 200
+    },
+    {
+      "team_id": "h27d3vjimk7scnai",
+      "team_name": "Mighty Melonheads",
+      "fantrax_id": "05rik",
+      "player_name": "Chandler, Bubba",
+      "status": "approaching",
+      "metric": "IP",
+      "value": 185.33333333333334,
+      "limit": 200
+    }
+  ]
+}

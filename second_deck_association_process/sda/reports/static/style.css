@@ -138,3 +138,13 @@ code { font-size: .95em; color: var(--ink); }
 .roster-grid tr.unsigned th { font-weight: 400; color: var(--muted); }
 .roster-grid .tag-minor { margin-left: 6px; font-size: 10px; color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.minor-stats th[rowspan], .minor-stats td[rowspan] { vertical-align: top; }
+.limit-flag { display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.limit-flag.approaching { background: #fff1c9; color: #7a5200; }
+.limit-flag.exceeded { background: #f8d9d2; color: #8a2a14; }
+
+.cap-grid .contract-total { color: var(--ink, inherit); font-weight: 600; }
+.cap-grid tr.collapsed details { display: none; }
+.row-toggle, .grid-controls button { border: 1px solid var(--line); background: var(--surface); color: var(--green); cursor: pointer; border-radius: 3px; padding: 2px 8px; font: inherit; }
+.row-toggle { padding: 0 6px; margin-right: 4px; }
+.grid-controls { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 12px; color: var(--muted); }

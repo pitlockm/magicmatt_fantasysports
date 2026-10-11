@@ -25,6 +25,7 @@ from sda.validation.rules import (
     v11_roster_min,
     v12_one_day_signing,
     v13_il_eligibility,
+    v14_unsigned_promotion,
 )
 
 
@@ -183,9 +184,10 @@ def test_fixture_league_fails_each_rule_exactly_once() -> None:
         v11_roster_min("t1", 25, 26),
         v12_one_day_signing("t1", "p1", datetime(2027, 5, 2), []),
         v13_il_eligibility("t1", "p1", "IL", False),
+        v14_unsigned_promotion("t1", "p1", date(2027, 5, 2), has_active_contract=False),
     ]
     failed_rule_ids = [result["rule_id"] for result in violations if not result["passed"]]
-    assert failed_rule_ids == [f"V{number}" for number in range(1, 14)]
+    assert failed_rule_ids == [f"V{number}" for number in range(1, 15)]
 
 
 def test_validation_cli_returns_nonzero_on_any_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -244,7 +246,7 @@ def test_engine_all_pass_fixture_reports_every_enabled_rule(tmp_path: Path) -> N
     assert report["summary"]["failed"] == 0
     assert report["summary"]["actions_taken"] == []
     rule_ids = {result["rule_id"] for result in report["per_team"]["t1"]}
-    assert rule_ids == {f"V{number}" for number in range(1, 11)} | {"V12", "V13"}
+    assert rule_ids == {f"V{number}" for number in range(1, 11)} | {"V12", "V13", "V14"}
 
 
 def test_engine_defaults_unannounced_add_once_and_exits_nonzero_summary(tmp_path: Path) -> None:
@@ -437,3 +439,92 @@ def test_engine_failure_fixture_reports_each_rule_once(
     ]
     failed_rule_ids = sorted(result["rule_id"] for result in failures)
     assert failed_rule_ids == sorted(f"V{number}" for number in range(1, 14))
+
+def _v14_database(
+    path: Path,
+    snapshots: dict[date, str],
+    *,
+    allowance: int = 0,
+    team_allowances: str | None = None,
+) -> None:
+    _engine_database(path)
+    with open_database(path) as connection:
+        connection.execute(
+            "UPDATE season_config SET unsigned_promotion_allowance = ?, "
+            "team_unsigned_promotion_allowances = ? WHERE season = 2027",
+            [allowance, team_allowances],
+        )
+        connection.execute(
+            "INSERT INTO players (fantrax_id, name, real_draft_year, real_life_il) "
+            "VALUES ('p2', 'Player Two', 2026, FALSE)"
+        )
+    for snapshot_date, level in snapshots.items():
+        record_roster_snapshot(
+            snapshot_date, {"t1": {"minors_roster": [], "mlb_roster": [{"id": "p1", "roster_level": level}]}}, path
+        )
+
+
+def _v14(report: dict) -> list[dict]:
+    results = [r for rows in report["per_team"].values() for r in rows] + report["league_results"]
+    return [r for r in results if r["rule_id"] == "V14"]
+
+
+_MINORS_THEN_MLB = {date(2027, 5, 1): "minors", date(2027, 5, 2): "MLB"}
+
+
+def test_v14_signed_promotion_passes(tmp_path: Path) -> None:
+    database = tmp_path / "v14.duckdb"
+    _v14_database(database, _MINORS_THEN_MLB)
+    append_event("t1", "p1", "SIGNED", 3, 2030, "manual", ts=datetime(2027, 5, 2), database_path=database)
+    report = run_all(2027, database, now=datetime(2027, 5, 2, 12))
+    assert [r["passed"] for r in _v14(report)] == [True]
+    assert "Active contract" in _v14(report)[0]["detail"]
+
+
+def test_v14_unsigned_promotion_fails_by_default(tmp_path: Path) -> None:
+    database = tmp_path / "v14.duckdb"
+    _v14_database(database, _MINORS_THEN_MLB)
+    report = run_all(2027, database, now=datetime(2027, 5, 2, 12))
+    failures = [r for r in _v14(report) if not r["passed"]]
+    assert len(failures) == 1 and failures[0]["fantrax_id"] == "p1"
+
+
+def test_v14_allowance_is_consumed_per_team_and_creates_no_contract(tmp_path: Path) -> None:
+    database = tmp_path / "v14.duckdb"
+    _v14_database(database, _MINORS_THEN_MLB, allowance=1)
+    report = run_all(2027, database, now=datetime(2027, 5, 2, 12))
+    assert [r["passed"] for r in _v14(report)] == [True]
+    with open_database(database) as connection:
+        assert connection.execute("SELECT count(*) FROM contract_events").fetchone() == (0,)
+
+    team_override = tmp_path / "override.duckdb"
+    _v14_database(team_override, _MINORS_THEN_MLB, allowance=1, team_allowances='{"t1": 0}')
+    report = run_all(2027, team_override, now=datetime(2027, 5, 2, 12))
+    assert [r["passed"] for r in _v14(report)] == [False]
+
+
+def test_v14_demoted_veteran_with_multi_year_deal_passes_when_promoted(tmp_path: Path) -> None:
+    database = tmp_path / "v14.duckdb"
+    snapshots = {
+        date(2027, 5, 1): "MLB",
+        date(2027, 5, 2): "minors",
+        date(2027, 5, 3): "MLB",
+    }
+    _v14_database(database, snapshots)
+    append_event("t1", "p1", "SIGNED", 4, 2031, "manual", ts=datetime(2026, 3, 1), database_path=database)
+    report = run_all(2027, database, now=datetime(2027, 5, 3, 12))
+    assert [r["passed"] for r in _v14(report)] == [True]
+
+
+def test_v14_missing_prior_snapshot_requires_review(tmp_path: Path) -> None:
+    database = tmp_path / "v14.duckdb"
+    _v14_database(database, {date(2027, 5, 1): "minors", date(2027, 5, 4): "MLB"})
+    report = run_all(2027, database, now=datetime(2027, 5, 5, 12))
+    results = _v14(report)
+    assert any(r["review_required"] and r["team_id"] is None for r in results)
+    assert any(not r["passed"] and r["review_required"] for r in results)
+
+    single = tmp_path / "single.duckdb"
+    _v14_database(single, {date(2027, 5, 1): "MLB"})
+    report = run_all(2027, single, now=datetime(2027, 5, 2, 12))
+    assert any("No prior roster snapshot" in r["detail"] for r in _v14(report))

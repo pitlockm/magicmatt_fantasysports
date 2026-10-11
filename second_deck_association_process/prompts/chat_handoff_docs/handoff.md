@@ -2,7 +2,7 @@
 
 **Status date:** 2026-10-09
 **Branch:** `main` at `6352748`, synchronized with `origin/main`; report, prompt, and handoff refinements are local and uncommitted
-**Implementation state:** The migration dry-run is clean with official multi-year minors contracts preserved and counted toward cap. The daily V14 promotion validation is documented but not yet implemented. No production contract events, live Discord connection, Apps Script deployment, or pipeline Git publish has been run.
+**Implementation state:** The migration dry-run is clean with official multi-year minors contracts preserved and counted toward cap. V14 promotion validation is implemented in `sda/validation/`; a Minor League Stats report tab (MLB Stats API; `python -m sda.mlb stats`, pipeline step 5b) flags minors players approaching (≥90%) or exceeding (>) the 1,000 AB / 200 IP career limits and writes `site/api/minor_league_flags.json` (117 tests pass). Free Agency Forecast now shows IP instead of QS; it now auto-populates from the MLB Stats API (`mlb_player_stats`, refreshed in pipeline step 5b; CSV override still supported). Known gap: V12's one-year default doesn't cover same-team promotions; it needs daily snapshots, so the launchd scheduler is still outstanding. No production contract events, live Discord connection, Apps Script deployment, or pipeline Git publish has been run; a local `--no-git` pipeline run succeeded on 2026-10-10 (124 validation failures, no alert webhook configured).
 
 ## Summary
 

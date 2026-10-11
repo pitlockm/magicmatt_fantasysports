@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% macro flag(player) %}{% if player.limit_flag.status == 'exceeded' %}<span class="limit-flag exceeded">Over limit</span>{% elif player.limit_flag.status == 'approaching' %}<span class="limit-flag approaching">Near limit</span>{% endif %}{% endmacro %}
+{% block content %}
+<section class="section-intro">
+  <p>Single-level stats for each team's minors roster, newest level first. Career MLB limits: {{ report.ab_limit|number }} at-bats for hitters, {{ report.ip_limit|number }} innings pitched for pitchers. “Near limit” starts at {{ (report.warning_ratio * 100)|round|int }}% of the limit.</p>
+  <span class="section-tag">{% if report.stats_available %}STATS {{ report.stats_season }}{% else %}STATS NOT LOADED{% endif %}</span>
+</section>
+{% for team in report.teams %}
+<section class="roster-team">
+  <div class="section-heading"><div><h2>{{ team.team_name }}</h2></div><span>{{ team.hitters|length + team.pitchers|length }} players</span></div>
+  {% if team.hitters %}
+  <div class="table-wrap">
+    <table class="data-table minor-stats">
+      <thead><tr><th>Hitter</th><th>Age</th><th>Career MLB AB</th><th>Level</th><th>Affiliate</th><th>AB</th><th>R</th><th>HR</th><th>SB</th><th>OBP</th></tr></thead>
+      <tbody>
+      {% for player in team.hitters %}
+        {% set rows = player.levels or [none] %}
+        {% for line in rows %}
+        <tr>
+          {% if loop.first %}<th scope="row" rowspan="{{ rows|length }}">{{ player.player_name }} <span class="tag-minor">{{ player.position|value }}</span>{{ flag(player) }}</th>
+          <td rowspan="{{ rows|length }}">{{ (line.age if line and line.age is not none else player.age)|value }}</td>
+          <td rowspan="{{ rows|length }}">{{ player.career_ab|stat }}</td>{% endif %}
+          {% if line %}<td>{{ line.level }}</td><td>{{ line.team_name|value }}</td><td>{{ line.ab|stat }}</td><td>{{ line.runs|stat }}</td><td>{{ line.home_runs|stat }}</td><td>{{ line.stolen_bases|stat }}</td><td>{{ line.obp|stat('three-decimal') }}</td>
+          {% else %}<td colspan="7" class="empty">No stats found</td>{% endif %}
+        </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if team.pitchers %}
+  <div class="table-wrap">
+    <table class="data-table minor-stats">
+      <thead><tr><th>Pitcher</th><th>Age</th><th>Career MLB IP</th><th>Level</th><th>Affiliate</th><th>IP</th><th>K</th><th>ERA</th><th>WHIP</th></tr></thead>
+      <tbody>
+      {% for player in team.pitchers %}
+        {% set rows = player.levels or [none] %}
+        {% for line in rows %}
+        <tr>
+          {% if loop.first %}<th scope="row" rowspan="{{ rows|length }}">{{ player.player_name }} <span class="tag-minor">{{ player.position|value }}</span>{{ flag(player) }}</th>
+          <td rowspan="{{ rows|length }}">{{ (line.age if line and line.age is not none else player.age)|value }}</td>
+          <td rowspan="{{ rows|length }}">{{ player.career_ip|stat('one-decimal') }}</td>{% endif %}
+          {% if line %}<td>{{ line.level }}</td><td>{{ line.team_name|value }}</td><td>{{ line.ip|stat('one-decimal') }}</td><td>{{ line.strikeouts|stat }}</td><td>{{ line.era|stat('two-decimal') }}</td><td>{{ line.whip|stat('two-decimal') }}</td>
+          {% else %}<td colspan="6" class="empty">No stats found</td>{% endif %}
+        </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if not team.hitters and not team.pitchers %}<p class="empty-state">No minor-league players.</p>{% endif %}
+</section>
+{% else %}<p class="empty-state">No teams have been loaded.</p>{% endfor %}
+{% endblock %}

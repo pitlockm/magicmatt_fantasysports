@@ -30,6 +30,7 @@ from sda.fantrax.normalize import normalize_players, normalize_rosters
 from sda.fantrax.snapshot import main as fantrax_snapshot_main
 from sda.fantrax.snapshots import load_snapshot
 from sda.db.ledger import record_roster_snapshot
+from sda.mlb.client import refresh_minor_stats, refresh_mlb_stats
 from sda.reports.build import build_site
 from sda.validation.engine import run_all
 
@@ -155,6 +156,19 @@ def run_pipeline(
         if standings is not None:
             update_current_season(season, standings, effective_database)
         steps.append("5. Update standings history")
+
+        if dry_run:
+            steps.append("5b. Refresh MLB and minor-league stats (skipped in dry-run; no network)")
+        else:
+            mlb_season = target_date.year if target_date.month >= 3 else target_date.year - 1
+            try:
+                refresh_minor_stats(effective_database, mlb_season)
+                refresh_mlb_stats(effective_database, mlb_season)
+                steps.append("5b. Refresh MLB and minor-league stats")
+            except Exception:
+                # Stats are informational; never block validation/report publishing.
+                LOGGER.exception("MLB minor-league stats refresh failed; continuing with prior data")
+                steps.append("5b. Refresh MLB and minor-league stats (failed; kept prior data)")
 
         build_site(season, effective_database, effective_site, snapshot_root=snapshot_root,
                    alias_path=effective_data / "player_aliases.json")

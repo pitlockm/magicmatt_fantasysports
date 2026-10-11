@@ -63,7 +63,7 @@ def test_report_functions_show_separate_dead_cap_and_enriched_free_agent_rows() 
         },
         stats_by_id={
             "p1": {"runs": 90, "obp": 0.355, "home_runs": 24, "stolen_bases": 8},
-            "p2": {"strikeouts": 175, "era": 3.25, "whip": 1.12, "quality_starts": 18, "saves_holds": 2},
+            "p2": {"strikeouts": 175, "era": 3.25, "whip": 1.12, "innings_pitched": 180.1, "saves_holds": 2},
         },
         stats_season=2026,
         adp_by_id={"p1": 38, "p2": 72.5},
@@ -143,7 +143,7 @@ def test_player_stats_csv_selects_latest_completed_season_by_fantrax_id(tmp_path
     stats_csv = tmp_path / "fantrax_stats.csv"
     with stats_csv.open("w", encoding="utf-8", newline="") as output:
         writer = csv.writer(output)
-        writer.writerow(["Fantrax ID", "Season", "R", "OBP", "HR", "SB", "K", "ERA", "WHIP", "QS", "SV/HLD"])
+        writer.writerow(["Fantrax ID", "Season", "R", "OBP", "HR", "SB", "K", "ERA", "WHIP", "IP", "SV/HLD"])
         writer.writerow(["p1", 2025, 80, 0.330, 20, 5, "", "", "", "", ""])
         writer.writerow(["p1", 2026, 92, 0.371, 29, 11, "", "", "", "", ""])
 
@@ -187,7 +187,7 @@ def test_build_site_renders_all_pages_cap_history_fallbacks_and_no_secrets(
     stats_csv = tmp_path / "fantrax_stats.csv"
     with stats_csv.open("w", encoding="utf-8", newline="") as output_file:
         writer = csv.writer(output_file)
-        writer.writerow(["Fantrax ID", "Season", "R", "OBP", "HR", "SB", "K", "ERA", "WHIP", "QS", "SV/HLD"])
+        writer.writerow(["Fantrax ID", "Season", "R", "OBP", "HR", "SB", "K", "ERA", "WHIP", "IP", "SV/HLD"])
         writer.writerow(["p-active", 2026, 101, 0.361, 31, 7, "", "", "", "", ""])
         writer.writerow(["p-beta", 2026, "", "", "", "", 188, 3.18, 1.09, 20, 5])
     for snapshot_name, fixture_name in (
@@ -253,7 +253,7 @@ def test_build_site_renders_all_pages_cap_history_fallbacks_and_no_secrets(
     assert api_data["draft_results.json"] == {}
 
     grid_html = (output / "index.html").read_text(encoding="utf-8")
-    assert "3 + 2 dead" in grid_html
+    assert "Dead cap: 2" in grid_html
     assert "trade +2" in grid_html
     assert "IL +1" in grid_html
     assert "76 space" in grid_html
@@ -269,7 +269,7 @@ def test_build_site_renders_all_pages_cap_history_fallbacks_and_no_secrets(
     assert not (output / "cap_tracker.html").exists()
     assert "1 cap trade" in grid_html
     assert "1 IL player" in grid_html
-    assert "multi-year deal" in grid_html
+    assert "multi-year contracts:" in grid_html
     assert "IL roster not projected" in grid_html
 
     history_html = (output / "history.html").read_text(encoding="utf-8")
@@ -329,3 +329,45 @@ def test_roster_projections_group_by_position_longest_contract_first_and_list_mi
     assert [y["year"] for y in players[0]["years"] if y["on_roster"]] == [2026, 2027, 2028]
     assert not any(y["on_roster"] for y in players[2]["years"])
     assert players[2]["signed"] is False
+
+
+def test_minor_league_stats_levels_and_career_limit_flags() -> None:
+    from sda.reports.build import career_limit_flag, report_minor_league_stats
+
+    assert career_limit_flag(899, 1000) is None
+    assert career_limit_flag(900, 1000) == "approaching"
+    assert career_limit_flag(1000, 1000) == "approaching"
+    assert career_limit_flag(1001, 1000) == "exceeded"
+    teams = [{"team_id": "t1", "team_name": "Team One"}]
+    minors = [
+        {"team_id": "t1", "fantrax_id": "h1", "player_name": "Hitter", "positions": "SS", "age": 21, "career_ab": 950, "career_ip": None},
+        {"team_id": "t1", "fantrax_id": "p1", "player_name": "Pitcher", "positions": "SP", "age": 22, "career_ab": None, "career_ip": 201.0},
+        {"team_id": "t1", "fantrax_id": "h2", "player_name": "Nostats", "positions": "OF", "age": 20, "career_ab": 0, "career_ip": None},
+    ]
+    stats = [
+        {"fantrax_id": "h1", "stat_group": "hitting", "level": "A+", "ab": 100},
+        {"fantrax_id": "h1", "stat_group": "hitting", "level": "AA", "ab": 40},
+        {"fantrax_id": "p1", "stat_group": "pitching", "level": "AAA", "ip": 30.0},
+    ]
+    report = report_minor_league_stats(teams, minors, stats, stats_season=2026)
+    team = report["teams"][0]
+    hitters = {player["fantrax_id"]: player for player in team["hitters"]}
+    assert [line["level"] for line in hitters["h1"]["levels"]] == ["AA", "A+"]
+    assert hitters["h1"]["limit_flag"]["status"] == "approaching"
+    assert hitters["h2"]["levels"] == [] and hitters["h2"]["limit_flag"]["status"] is None
+    assert team["pitchers"][0]["limit_flag"]["status"] == "exceeded"
+    assert {(flag["fantrax_id"], flag["status"]) for flag in report["flags"]} == {("h1", "approaching"), ("p1", "exceeded")}
+
+
+def test_grid_reclassifies_one_year_remaining_and_reports_counts() -> None:
+    from sda.reports.build import report_multiyear_grid
+
+    teams = [{"team_id": "t", "team_name": "T", "manager": "M"}]
+    contracts = [
+        {"team_id": "t", "fantrax_id": "a", "player_name": "A", "fa_year": 2029, "ts": "2026-01-01"},
+        {"team_id": "t", "fantrax_id": "b", "player_name": "B", "fa_year": 2031, "ts": "2026-01-01"},
+    ]
+    first, second = report_multiyear_grid(teams, contracts, [], {}, 2027, years=2)["teams"][0]["cells"]
+    assert (first["player_count"], first["multi_year_years"], len(first["contracts"])) == (2, 6, 2)
+    assert [c["player_name"] for c in second["one_year_contracts"]] == ["A"]
+    assert (second["multi_year_years"], len(second["contracts"]), second["player_count"]) == (3, 1, 2)

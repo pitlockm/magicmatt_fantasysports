@@ -15,12 +15,14 @@ from typing import Any
 
 import requests
 
+from sda.db.schema import initialize_database
 from sda.db.connection import DEFAULT_DATABASE_PATH, open_database
 from sda.db.snapshots import export_text_snapshot
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://statsapi.mlb.com/api/v1/"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LEVEL_SPORT_IDS = {"MLB": 1, "AAA": 11, "AA": 12, "A+": 13, "A": 14, "ROK": 16}
 
 
 class MLBStatsAPIError(RuntimeError):
@@ -65,6 +67,7 @@ class MLBStatsClient:
 
     def find_mlbam_id(self, name: str) -> int | None:
         """Resolve a player only if exactly one API result matches the full name."""
+        name = _first_last(name)
         normalized_name = normalize_person_name(name)
         if not normalized_name:
             return None
@@ -124,6 +127,52 @@ class MLBStatsClient:
                 elif str(group_name).casefold() == "pitching":
                     career_ip = parse_innings_pitched(stat.get("inningsPitched"))
         return {"career_ab": career_ab, "career_ip": career_ip}
+
+    def get_level_stats(self, season: int, group: str, level: str) -> dict[int, dict[str, Any]]:
+        """Return one league-wide season stat line per MLBAM ID at a single level."""
+        payload = self._get_json(
+            "stats",
+            {
+                "stats": "season",
+                "group": group,
+                "season": str(season),
+                "playerPool": "ALL",
+                "sportId": str(LEVEL_SPORT_IDS[level]),
+                "limit": "5000",
+            },
+        )
+        stat_groups = payload.get("stats", []) if isinstance(payload, Mapping) else []
+        lines: dict[int, dict[str, Any]] = {}
+        for stat_group in stat_groups:
+            for split in stat_group.get("splits", []) if isinstance(stat_group, Mapping) else []:
+                player = split.get("player") if isinstance(split, Mapping) else None
+                stat = split.get("stat") if isinstance(split, Mapping) else None
+                mlbam_id = _optional_int(player.get("id")) if isinstance(player, Mapping) else None
+                if mlbam_id is None or not isinstance(stat, Mapping):
+                    continue
+                team = split.get("team")
+                line = {
+                    "team_name": team.get("name") if isinstance(team, Mapping) else None,
+                    "age": _optional_int(stat.get("age")),
+                    "ab": _optional_int(stat.get("atBats")),
+                    "runs": _optional_int(stat.get("runs")),
+                    "home_runs": _optional_int(stat.get("homeRuns")),
+                    "stolen_bases": _optional_int(stat.get("stolenBases")),
+                    "obp": _optional_float(stat.get("obp")),
+                    "ip": parse_innings_pitched(stat.get("inningsPitched")),
+                    "strikeouts": _optional_int(stat.get("strikeOuts")),
+                    "era": _optional_float(stat.get("era")),
+                    "whip": _optional_float(stat.get("whip")),
+                    "saves_holds": (_optional_int(stat.get("saves")) or 0) + (_optional_int(stat.get("holds")) or 0)
+                    if group == "pitching" else None,
+                }
+                # A player traded within a level has one split per team; keep the larger sample.
+                volume = line["ab"] if group == "hitting" else line["ip"]
+                existing = lines.get(mlbam_id)
+                existing_volume = (existing["ab"] if group == "hitting" else existing["ip"]) if existing else None
+                if existing is None or (volume or 0) > (existing_volume or 0):
+                    lines[mlbam_id] = line
+        return lines
 
     def _get_json(self, endpoint: str, params: dict[str, str]) -> Any:
         cache_path = self._cache_path(endpoint, params)
@@ -207,6 +256,14 @@ class MLBStatsClient:
             self._sleep(delay)
 
 
+def _first_last(name: str) -> str:
+    """Convert Fantrax's 'Last, First' display into 'First Last'."""
+    if "," not in name:
+        return name
+    last, first = name.split(",", 1)
+    return f"{first.strip()} {last.strip()}".strip()
+
+
 def normalize_person_name(name: str) -> str:
     """Case-fold and remove accents/punctuation for exact full-name matching."""
     decomposed = unicodedata.normalize("NFKD", name.casefold())
@@ -233,8 +290,9 @@ def refresh_minor_bios(
     database_path: Path = DEFAULT_DATABASE_PATH,
     *,
     client: MLBStatsClient | None = None,
+    all_levels: bool = False,
 ) -> int:
-    """Refresh bio fields for minors in the latest roster snapshot only."""
+    """Refresh bio fields for minors (or every rostered player) in the latest roster snapshot."""
     stats_client = client or MLBStatsClient()
     with open_database(database_path, read_only=True) as connection:
         latest_date_row = connection.execute(
@@ -248,9 +306,9 @@ def refresh_minor_bios(
             """SELECT DISTINCT p.fantrax_id, p.name, p.mlbam_id
                FROM roster_snapshots AS roster
                JOIN players AS p ON p.fantrax_id = roster.fantrax_id
-               WHERE roster.snapshot_date = ? AND roster.roster_level = 'minors'
+               WHERE roster.snapshot_date = ? AND (? OR roster.roster_level = 'minors')
                ORDER BY p.fantrax_id""",
-            [snapshot_date],
+            [snapshot_date, all_levels],
         ).fetchall()
 
     refreshed_at = datetime.now()
@@ -287,6 +345,109 @@ def refresh_minor_bios(
     if updates:
         export_text_snapshot(database_path)
     return len(updates)
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        return float(value) if value not in (None, "", "-.--", ".---", "-") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def refresh_minor_stats(
+    database_path: Path = DEFAULT_DATABASE_PATH,
+    season: int | None = None,
+    *,
+    client: MLBStatsClient | None = None,
+) -> int:
+    """Refresh bios, then store per-level season stats for players on minors rosters."""
+    stats_client = client or MLBStatsClient()
+    season = season or date.today().year
+    refresh_minor_bios(database_path, client=stats_client)
+    with open_database(database_path, read_only=True) as connection:
+        snapshot_date = connection.execute("SELECT max(snapshot_date) FROM roster_snapshots").fetchone()[0]
+        if snapshot_date is None:
+            return 0
+        rows = connection.execute(
+            """SELECT DISTINCT p.fantrax_id, p.mlbam_id FROM roster_snapshots r
+               JOIN players p ON p.fantrax_id = r.fantrax_id
+               WHERE r.snapshot_date = ? AND r.roster_level = 'minors' AND p.mlbam_id IS NOT NULL""",
+            [snapshot_date],
+        ).fetchall()
+    fantrax_by_mlbam = {int(mlbam_id): str(fantrax_id) for fantrax_id, mlbam_id in rows}
+    refreshed_at = datetime.now()
+    records = []
+    for group in ("hitting", "pitching"):
+        for level in LEVEL_SPORT_IDS:
+            for mlbam_id, line in stats_client.get_level_stats(season, group, level).items():
+                fantrax_id = fantrax_by_mlbam.get(mlbam_id)
+                if fantrax_id is None:
+                    continue
+                records.append(
+                    (
+                        season, fantrax_id, mlbam_id, group, level, line["team_name"], line["age"],
+                        line["ab"], line["runs"], line["home_runs"], line["stolen_bases"], line["obp"],
+                        line["ip"], line["strikeouts"], line["era"], line["whip"], refreshed_at,
+                    )
+                )
+    with open_database(database_path) as connection:
+        connection.execute("BEGIN TRANSACTION")
+        connection.execute("DELETE FROM minor_league_stats WHERE season = ?", [season])
+        if records:
+            connection.executemany(
+                "INSERT INTO minor_league_stats VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                records,
+            )
+        connection.execute("COMMIT")
+    return len(records)
+
+
+def refresh_mlb_stats(
+    database_path: Path = DEFAULT_DATABASE_PATH,
+    season: int | None = None,
+    *,
+    client: MLBStatsClient | None = None,
+) -> int:
+    """Refresh bios, then store MLB-level season stats for every rostered player."""
+    stats_client = client or MLBStatsClient()
+    season = season or date.today().year
+    initialize_database(database_path)
+    refresh_minor_bios(database_path, client=stats_client, all_levels=True)
+    with open_database(database_path, read_only=True) as connection:
+        snapshot_date = connection.execute("SELECT max(snapshot_date) FROM roster_snapshots").fetchone()[0]
+        if snapshot_date is None:
+            return 0
+        rows = connection.execute(
+            """SELECT DISTINCT p.fantrax_id, p.mlbam_id FROM roster_snapshots r
+               JOIN players p ON p.fantrax_id = r.fantrax_id
+               WHERE r.snapshot_date = ? AND p.mlbam_id IS NOT NULL""",
+            [snapshot_date],
+        ).fetchall()
+    fantrax_by_mlbam = {int(mlbam_id): str(fantrax_id) for fantrax_id, mlbam_id in rows}
+    refreshed_at = datetime.now()
+    records = []
+    for group in ("hitting", "pitching"):
+        for mlbam_id, line in stats_client.get_level_stats(season, group, "MLB").items():
+            fantrax_id = fantrax_by_mlbam.get(mlbam_id)
+            if fantrax_id is None:
+                continue
+            records.append(
+                (
+                    season, fantrax_id, mlbam_id, group, line["runs"], line["home_runs"],
+                    line["stolen_bases"], line["obp"], line["ip"], line["strikeouts"],
+                    line["era"], line["whip"], line["saves_holds"], refreshed_at,
+                )
+            )
+    with open_database(database_path) as connection:
+        connection.execute("BEGIN TRANSACTION")
+        connection.execute("DELETE FROM mlb_player_stats WHERE season = ?", [season])
+        if records:
+            connection.executemany(
+                "INSERT INTO mlb_player_stats VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                records,
+            )
+        connection.execute("COMMIT")
+    return len(records)
 
 
 def _optional_int(value: Any) -> int | None:

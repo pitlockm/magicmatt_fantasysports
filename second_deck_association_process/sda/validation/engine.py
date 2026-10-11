@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import defaultdict
 from collections.abc import Mapping
@@ -11,6 +12,7 @@ from typing import Any
 
 from sda.db.connection import DEFAULT_DATABASE_PATH, open_database
 from sda.db.ledger import append_event
+from sda.db.schema import initialize_database
 from sda.validation import rules
 
 LOGGER = logging.getLogger(__name__)
@@ -24,8 +26,9 @@ def run_all(
     *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Run V1-V13 and return per-team results, league summary, and V12 actions."""
+    """Run V1-V14 and return per-team results, league summary, and V12 actions."""
     current_time = (now or datetime.now()).replace(tzinfo=None)
+    initialize_database(Path(database_path))
     state = _load_state(Path(database_path), season)
     v12_results, actions = _apply_one_day_defaults(state, Path(database_path), current_time)
     if actions:
@@ -142,7 +145,10 @@ def run_all(
             )
         )
 
-    applicable_rule_ids = [f"V{rule_number}" for rule_number in range(1, 14)]
+    for result in _v14_results(state, season):
+        add(result)
+
+    applicable_rule_ids = [f"V{rule_number}" for rule_number in range(1, 15)]
     if state["min_mlb_roster"] is None:
         applicable_rule_ids.remove("V11")
     for team_id, results in per_team.items():
@@ -206,14 +212,23 @@ def _load_state(database_path: Path, season: int) -> dict[str, Any]:
                FROM roster_snapshots ORDER BY snapshot_date, team_id, fantrax_id"""
         ).fetchall()
         config = connection.execute(
-            """SELECT cap_years, freeze_date, min_mlb_roster, draft_start, draft_end
+            """SELECT cap_years, freeze_date, min_mlb_roster, draft_start, draft_end,
+                      unsigned_promotion_allowance, team_unsigned_promotion_allowances
                FROM season_config WHERE season = ?""",
             [season],
         ).fetchone()
         if config is None:
             cap_years, freeze_date, min_mlb_roster, draft_start, draft_end = 78, None, None, None, None
+            default_allowance, team_allowance_json = 0, None
         else:
-            cap_years, freeze_date, min_mlb_roster, draft_start, draft_end = config
+            (
+                cap_years, freeze_date, min_mlb_roster, draft_start, draft_end,
+                default_allowance, team_allowance_json,
+            ) = config
+        team_allowances = {
+            str(team_id): int(value)
+            for team_id, value in json.loads(team_allowance_json or "{}").items()
+        }
         active_cursor = connection.execute(
             "SELECT team_id, fantrax_id, fa_year, note FROM current_contracts WHERE fa_year > ?",
             [season],
@@ -320,6 +335,8 @@ def _load_state(database_path: Path, season: int) -> dict[str, Any]:
         "roster_additions": roster_additions,
         "unreported_exits": unreported_exits,
         "cap_years": int(cap_years),
+        "default_promotion_allowance": int(default_allowance or 0),
+        "team_promotion_allowances": team_allowances,
         "freeze_date": freeze_date,
         "min_mlb_roster": min_mlb_roster,
         "draft_start": draft_start,
@@ -332,6 +349,69 @@ def _load_state(database_path: Path, season: int) -> dict[str, Any]:
         "cap_committed": cap_committed,
         "announcements": announcements,
     }
+
+
+def _v14_results(state: Mapping[str, Any], season: int) -> list[dict[str, Any]]:
+    """Diff consecutive roster snapshots for unsigned minors-to-MLB/IL promotions."""
+    snapshots = state["snapshots"]
+    dates = sorted(snapshots)
+    if not dates:
+        return []
+    results: list[dict[str, Any]] = []
+    if len(dates) == 1:
+        results.append(
+            {
+                "rule_id": "V14", "team_id": None, "fantrax_id": None, "passed": True,
+                "detail": "No prior roster snapshot exists; promotions cannot be checked.",
+                "review_required": True,
+            }
+        )
+    used: dict[str, int] = defaultdict(int)
+    for previous_date, current_date in zip(dates, dates[1:]):
+        if current_date.year != season:
+            continue
+        gap = (current_date - previous_date).days > 1
+        if gap:
+            results.append(
+                {
+                    "rule_id": "V14", "team_id": None, "fantrax_id": None, "passed": True,
+                    "detail": f"Roster snapshots missing between {previous_date} and {current_date}; "
+                    "promotions in the gap cannot be dated.",
+                    "review_required": True,
+                }
+            )
+        previous = snapshots[previous_date]
+        for key, level in sorted(snapshots[current_date].items()):
+            if level not in {"MLB", "IL"} or previous.get(key) != "minors":
+                continue
+            team_id, fantrax_id = key
+            allowance = state["team_promotion_allowances"].get(
+                team_id, state["default_promotion_allowance"]
+            )
+            has_contract = _has_contract_on(state["events"], team_id, fantrax_id, current_date)
+            result = rules.v14_unsigned_promotion(
+                team_id,
+                fantrax_id,
+                current_date,
+                has_active_contract=has_contract,
+                allowance=allowance,
+                allowance_used=used[team_id],
+                approximate_date=gap,
+            )
+            if not has_contract and used[team_id] < allowance:
+                used[team_id] += 1
+            results.append(result)
+    return results
+
+
+def _has_contract_on(
+    events: list[dict[str, Any]], team_id: str, fantrax_id: str, as_of: date
+) -> bool:
+    latest = _latest_contract_event(events, team_id, fantrax_id, as_of)
+    if latest is None or str(latest.get("event_type", "")).upper() not in _START_EVENTS:
+        return False
+    fa_year = latest.get("fa_year")
+    return fa_year is not None and int(fa_year) > as_of.year
 
 
 def _apply_one_day_defaults(

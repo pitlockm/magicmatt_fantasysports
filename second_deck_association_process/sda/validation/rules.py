@@ -425,6 +425,43 @@ def v13_il_eligibility(
     )
 
 
+def v14_unsigned_promotion(
+    team_id: str,
+    fantrax_id: str,
+    promoted_on: date,
+    *,
+    has_active_contract: bool,
+    allowance: int = 0,
+    allowance_used: int = 0,
+    approximate_date: bool = False,
+) -> RuleResult:
+    """Require a minors-to-MLB/IL promotion to have an active contract or unused allowance."""
+    if has_active_contract:
+        passed, detail = True, f"Active contract in effect for promotion on {promoted_on}."
+    elif allowance_used < allowance:
+        passed = True
+        detail = (
+            f"Unsigned promotion on {promoted_on} allowed ({allowance_used + 1} of {allowance} "
+            "annual allowance); no contract was created."
+        )
+    else:
+        passed = False
+        detail = (
+            f"Promoted from minors to MLB/IL on {promoted_on} with no active contract "
+            f"({allowance_used} of {allowance} unsigned-promotion allowance used)."
+        )
+    if approximate_date:
+        detail += " Promotion date is uncertain because a daily snapshot is missing."
+    return _result(
+        "V14",
+        passed,
+        detail,
+        team_id=team_id,
+        fantrax_id=fantrax_id,
+        review_required=approximate_date,
+    )
+
+
 def _event_sort_key(event: Mapping[str, Any]) -> tuple[datetime, int]:
     return (_event_datetime(event.get("ts")) or datetime.min, _integer(event.get("event_id")) or 0)
 

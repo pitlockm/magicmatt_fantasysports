@@ -79,6 +79,8 @@ The laptop hosts the bot and pipeline; they are offline while it is off. Install
 
 Install/start with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sda.commishbot.plist`; stop/uninstall with `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.sda.commishbot.plist`. The bot resumes from the last processed Discord message ID and writes DB text snapshots after changes. The pipeline publishes the generated site to the repository-root `docs/` directory for GitHub Pages and pushes only when the worktree is clean.
 
+Nightly pipeline: run `deploy/install_launchd.sh 2027` to install a 06:00 daily LaunchAgent (template in `deploy/`). It publishes `docs/` and pushes, so the worktree must be clean when it fires; V14 needs these daily snapshots. A Mac that is asleep at 06:00 runs the job on wake.
+
 For daily operation and issue handling, see [OPERATIONS.md](OPERATIONS.md) and [LEAGUE_CALENDAR.md](LEAGUE_CALENDAR.md).
 ## Minor League Stats tab
 
